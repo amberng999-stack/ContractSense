@@ -1,7 +1,7 @@
 // ═══════════════════════════════════════════
 // CONFIG — change this to your backend URL
 // ═══════════════════════════════════════════
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = 'https://nexhack-2026.onrender.com';
 
 // ═══════════════════════════════════════════
 // BACKEND STATUS CHECKER
