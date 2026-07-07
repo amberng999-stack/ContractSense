@@ -15,6 +15,7 @@ class ClauseFinding(BaseModel):
     line_number: int | None = None
     matched_snippet: str | None = None
     law_section: str | None = None
+    law_text: str | None = None
     rewrite: str | None = None
 
 

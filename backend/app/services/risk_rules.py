@@ -20,6 +20,7 @@ class RiskRule:
     explanation: str
     recommendation: str
     law_section: str
+    law_text: str
     rewrite: str
 
 
@@ -33,6 +34,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="The contract may allow significant changes to its terms.",
         recommendation="Require written notice, mutual consent, and a right to terminate if material terms change.",
         law_section="Contracts Act 1950 (Section 10)",
+        law_text="10. (1) All agreements are contracts if they are made by the free consent of parties competent to contract, for a lawful consideration and with a lawful object, and are not hereby expressly declared to be void.",
         rewrite="Any changes to the material terms of this Agreement shall be in writing and mutually agreed upon by both Parties.",
     ),
     RiskRule(
@@ -49,6 +51,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="The contract allows one party to unilaterally modify terms or pricing without the other's consent.",
         recommendation="Require mutual written consent for all modifications and price changes.",
         law_section="Contracts Act 1950 (Section 10 & 13)",
+        law_text="10. (1) All agreements are contracts if they are made by the free consent of parties competent to contract... 13. Two or more persons are said to consent when they agree upon the same thing in the same sense.",
         rewrite="No modification to this Agreement or adjustment to pricing shall be valid unless made in writing and signed by the authorized representatives of both Parties.",
     ),
     RiskRule(
@@ -65,6 +68,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="The agreement will automatically renew unless a party gives notice to terminate before the deadline.",
         recommendation="Ensure the notice period for non-renewal is reasonable (e.g., 30-90 days) and track the deadline.",
         law_section="Contracts Act 1950 (Section 6 & 7)",
+        law_text="6. A proposal is revoked— (a) by the communication of notice of revocation... 7. In order to convert a proposal into a promise the acceptance must— (a) be absolute and unqualified...",
         rewrite="This Agreement shall not automatically renew. Any renewal must be mutually agreed in writing by both Parties at least 30 days prior to the expiration of the current term.",
     ),
     RiskRule(
@@ -80,6 +84,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="The contract may allow extra charges beyond the headline price.",
         recommendation="List all charge categories, caps, approval requirements, and invoice dispute rights.",
         law_section="Contracts Act 1950 (Section 10)",
+        law_text="10. (1) All agreements are contracts if they are made by the free consent of parties competent to contract, for a lawful consideration and with a lawful object, and are not hereby expressly declared to be void.",
         rewrite="No additional administrative fees, pass-through charges, or extra costs shall be charged unless explicitly specified in this Agreement or agreed in writing.",
     ),
     RiskRule(
@@ -95,6 +100,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="Liability may be excluded or capped too broadly for enterprise risk tolerance.",
         recommendation="Carve out fraud, confidentiality, data breach, IP infringement, and gross negligence.",
         law_section="Contracts Act 1950 (Section 29)",
+        law_text="29. Every agreement, by which any party thereto is restricted absolutely from enforcing his rights under or in respect of any contract, by the usual legal proceedings in the ordinary tribunals, or which limits the time within which he may thus enforce his rights, is void to that extent.",
         rewrite="Neither Party excludes or limits its liability for fraud, gross negligence, intellectual property infringement, or breach of confidentiality.",
     ),
     RiskRule(
@@ -109,6 +115,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="The vendor may use, share, or transfer enterprise/customer data broadly.",
         recommendation="Limit data use to service delivery, require data processing terms, and define retention/deletion duties.",
         law_section="PDPA 2010 (Section 6 - General Principle)",
+        law_text="6. (1) A data user shall not, in the case of personal data other than sensitive personal data, process personal data about a data subject unless the data subject has given his consent to the processing of the personal data.",
         rewrite="The processing of personal data shall be limited strictly to the performance of the services, and shall not be shared with third parties without prior written consent.",
     ),
     RiskRule(
@@ -122,6 +129,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="Available remedies may be narrowed even when business harm is larger.",
         recommendation="Preserve injunctive relief, statutory rights, and remedies for severe breaches.",
         law_section="Contracts Act 1950 (Section 29)",
+        law_text="29. Every agreement, by which any party thereto is restricted absolutely from enforcing his rights under or in respect of any contract, by the usual legal proceedings in the ordinary tribunals, or which limits the time within which he may thus enforce his rights, is void to that extent.",
         rewrite="The remedies set forth in this Agreement are cumulative and in addition to, not in lieu of, any other remedies available at law or in equity.",
     ),
     RiskRule(
@@ -136,6 +144,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="Important terms may live outside the uploaded contract and change later.",
         recommendation="Attach referenced terms as exhibits and freeze the applicable version at signature.",
         law_section="Contracts Act 1950 (Section 30)",
+        law_text="30. Agreements, the meaning of which is not certain, or capable of being made certain, are void.",
         rewrite="Terms incorporated by external reference are frozen as of the date of signature and cannot be unilaterally updated by either Party.",
     ),
     # --- NDA / confidentiality-specific rules ---
@@ -151,6 +160,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="Defining confidential information to include publicly available or independently developed information is overbroad and may be unenforceable.",
         recommendation="Limit the definition to non-public information that is marked confidential or reasonably understood to be confidential, with standard carve-outs (public domain, independently developed, already known).",
         law_section="Contracts Act 1950 (Section 28)",
+        law_text="28. Every agreement by which anyone is restrained from exercising a lawful profession, trade, or business of any kind, is to that extent void.",
         rewrite="Confidential Information shall not include information that is publicly known, already possessed by the receiving party, or independently developed.",
     ),
     RiskRule(
@@ -165,6 +175,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="Obligations with no time limit are commercially unusual and may be struck down by courts as an unreasonable restraint.",
         recommendation="Specify a fixed term (commonly 2-5 years for confidentiality) after which obligations lapse, unless renewed by agreement.",
         law_section="Contracts Act 1950 (Section 28)",
+        law_text="28. Every agreement by which anyone is restrained from exercising a lawful profession, trade, or business of any kind, is to that extent void.",
         rewrite="The obligations of confidentiality under this Agreement shall survive the termination or expiration of this Agreement for a period of three (3) years.",
     ),
     RiskRule(
@@ -179,6 +190,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="A clause that prohibits disclosure even when required by law, court order, or regulator is unenforceable and may expose a party to contempt of court if relied upon.",
         recommendation="Add a standard carve-out permitting disclosure required by law or valid court/regulatory order, with prior notice to the other party where legally permitted.",
         law_section="Contracts Act 1950 (Section 29)",
+        law_text="29. Every agreement, by which any party thereto is restricted absolutely from enforcing his rights under or in respect of any contract, by the usual legal proceedings in the ordinary tribunals, or which limits the time within which he may thus enforce his rights, is void to that extent.",
         rewrite="A receiving party may disclose Confidential Information if required by law or court order, provided it gives prompt written notice to the disclosing party.",
     ),
     RiskRule(
@@ -194,6 +206,7 @@ RISK_RULES: tuple[RiskRule, ...] = (
         explanation="A fixed damages amount unrelated to actual loss may be treated as an unenforceable penalty rather than a genuine pre-estimate of loss under contract law.",
         recommendation="Tie liquidated damages to a reasonable pre-estimate of loss, or rely on general damages assessed by a court instead of a large fixed figure.",
         law_section="Contracts Act 1950 (Section 75)",
+        law_text="75. When a contract has been broken, if a sum is named in the contract as the amount to be paid in case of such breach, or if the contract contains any other stipulation by way of penalty, the party complaining of the breach is entitled, whether or not actual damage or loss is proved to have been caused thereby, to receive from the party who has broken the contract reasonable compensation not exceeding the amount so named or the penalty stipulated for.",
         rewrite="Any damages for breach of contract shall be limited to actual, proven losses, up to a reasonable pre-estimate of loss.",
     ),
 )
@@ -233,6 +246,7 @@ def analyze_text(text: str) -> list[ClauseFinding]:
                         line_number=None,
                         matched_snippet=excerpt,
                         law_section=matched_rule.law_section,
+                        law_text=matched_rule.law_text,
                         rewrite=matched_rule.rewrite,
                     )
                 )
@@ -252,11 +266,10 @@ def analyze_text(text: str) -> list[ClauseFinding]:
                         line_number=None,
                         matched_snippet=None,
                         law_section=None,
+                        law_text=None,
                         rewrite=None,
                     )
                 )
-
-
     return findings
 
 
@@ -301,5 +314,3 @@ def _excerpt_around(text: str, start: int, end: int, radius: int = 200) -> str:
     prefix = "..." if left > 0 else ""
     suffix = "..." if right < len(text) else ""
     return f"{prefix}{text[left:right]}{suffix}"
-
-
