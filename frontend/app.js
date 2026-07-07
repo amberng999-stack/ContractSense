@@ -24,6 +24,7 @@ async function checkBackend() {
         API_BASE = url;
         dot.className     = 'status-dot online';
         label.textContent = `Backend online (${url.includes('127.0.0.1') || url.includes('localhost') ? 'Local' : 'Cloud'})`;
+        loadPolicySourceStatus();
         return;
       }
     } catch (err) {
@@ -433,6 +434,95 @@ function removeFile() {
 }
 
 function togglePill(el) { el.classList.toggle('active'); }
+
+async function loadPolicySourceStatus() {
+  const statusEl = document.getElementById('policy-source-status');
+  const pill = document.getElementById('company-policy-pill');
+  if (!statusEl || !pill) return;
+
+  try {
+    const res = await fetch(`${API_BASE}/api/reference/policy/source`);
+    if (!res.ok) throw new Error(`Server returned ${res.status}`);
+    const status = await res.json();
+    updatePolicySourceUi(status);
+  } catch (err) {
+    statusEl.textContent = 'Could not check company policy sync status.';
+    statusEl.className = 'policy-source-status error';
+  }
+}
+
+function updatePolicySourceUi(status) {
+  const statusEl = document.getElementById('policy-source-status');
+  const pill = document.getElementById('company-policy-pill');
+  if (!statusEl || !pill) return;
+
+  pill.classList.toggle('active', status.sync_status === 'up_to_date');
+  statusEl.className = 'policy-source-status';
+  if (status.sync_status === 'up_to_date') {
+    statusEl.classList.add('linked');
+    statusEl.textContent = `Company policy linked · v${status.version || 1} · ${status.message || 'Up to date'}`;
+  } else if (status.sync_status === 'error') {
+    statusEl.classList.add('error');
+    statusEl.textContent = status.message || 'Company policy sync has an error.';
+  } else {
+    statusEl.textContent = status.message || 'No company policy linked yet.';
+  }
+}
+
+function openPolicyLinkModal() {
+  const modal = document.getElementById('policy-link-modal');
+  const input = document.getElementById('policy-sharepoint-url');
+  const status = document.getElementById('policy-modal-status');
+  if (!modal) return;
+  modal.classList.add('show');
+  if (status) {
+    status.textContent = '';
+    status.className = 'policy-modal-status';
+  }
+  setTimeout(() => input?.focus(), 50);
+}
+
+function closePolicyLinkModal() {
+  document.getElementById('policy-link-modal')?.classList.remove('show');
+}
+
+async function linkCompanyPolicySource() {
+  const input = document.getElementById('policy-sharepoint-url');
+  const status = document.getElementById('policy-modal-status');
+  const btn = document.getElementById('policy-link-submit');
+  const sourceUrl = (input?.value || '').trim();
+  if (!sourceUrl) {
+    status.textContent = 'Paste a SharePoint policy file link first.';
+    status.className = 'policy-modal-status error';
+    return;
+  }
+
+  btn.disabled = true;
+  status.textContent = 'Linking and syncing company policy...';
+  status.className = 'policy-modal-status';
+
+  try {
+    const res = await fetch(`${API_BASE}/api/reference/policy/source`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_url: sourceUrl }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
+
+    updatePolicySourceUi(data);
+    status.textContent = data.message || 'Company policy linked successfully.';
+    status.className = data.sync_status === 'error' ? 'policy-modal-status error' : 'policy-modal-status ok';
+    if (data.sync_status !== 'error') {
+      setTimeout(closePolicyLinkModal, 700);
+    }
+  } catch (err) {
+    status.textContent = err.message;
+    status.className = 'policy-modal-status error';
+  } finally {
+    btn.disabled = false;
+  }
+}
 
 // ═══════════════════════════════════════════
 // SCANNER — CALL REAL BACKEND API

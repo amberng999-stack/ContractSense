@@ -22,6 +22,12 @@ from app.services.malaysia_law_updater import (
     start_malaysia_law_updater,
     update_malaysia_law_database,
 )
+from app.services.sharepoint_policy_sync import (
+    link_company_policy_source,
+    read_company_policy_source_status,
+    start_company_policy_sync,
+    sync_company_policy_source,
+)
 
 settings = get_settings()
 app = FastAPI(title=settings.app_name)
@@ -37,6 +43,11 @@ def startup_event():
         source_url=settings.malaysia_law_source_url,
         interval_hours=settings.malaysia_law_update_interval_hours,
         enabled=settings.malaysia_law_auto_update_enabled,
+    )
+    start_company_policy_sync(
+        POLICIES_DIR,
+        interval_minutes=settings.company_policy_sync_interval_minutes,
+        enabled=settings.company_policy_sync_enabled,
     )
 
 # CORS Setup
@@ -84,6 +95,9 @@ class ChatRequest(BaseModel):
     contract_text: str
     findings: list[ClauseFinding] = []
     chat_history: list[ChatMessage] = []
+
+class CompanyPolicyLinkRequest(BaseModel):
+    source_url: str
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok", "service": settings.app_name}
@@ -254,6 +268,30 @@ async def refresh_malaysia_law_reference():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Malaysia law database update failed: {str(e)}"
         )
+
+@app.get("/api/reference/policy/source")
+def get_company_policy_source():
+    return read_company_policy_source_status(POLICIES_DIR)
+
+@app.post("/api/reference/policy/source")
+async def save_company_policy_source(request: CompanyPolicyLinkRequest):
+    try:
+        return await asyncio.to_thread(
+            link_company_policy_source,
+            POLICIES_DIR,
+            source_url=request.source_url,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Company policy source link failed: {str(e)}"
+        )
+
+@app.post("/api/reference/policy/sync")
+async def sync_company_policy_now():
+    return await asyncio.to_thread(sync_company_policy_source, POLICIES_DIR)
 
 @app.post("/api/reference/upload")
 async def upload_reference_file(

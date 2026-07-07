@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     malaysia_law_auto_update_enabled: bool = True
     malaysia_law_update_interval_hours: int = 24
     malaysia_law_source_url: str = "https://lom.agc.gov.my/"
+    company_policy_sync_enabled: bool = True
+    company_policy_sync_interval_minutes: int = 60
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

@@ -81,6 +81,9 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 4
 .rule-pill{background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:7px 14px;font-size:12px;font-weight:500;color:var(--text2);cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:6px;user-select:none}
 .rule-pill.active{background:rgba(79,142,247,0.15);border-color:var(--accent);color:var(--accent)}
 .rule-pill .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.policy-source-status{font-size:11px;color:var(--text3);margin-top:10px;line-height:1.4}
+.policy-source-status.linked{color:var(--green)}
+.policy-source-status.error{color:var(--red)}
 .scan-btn{width:100%;margin-top:28px;background:linear-gradient(135deg,#4F8EF7,#7B5FFF);color:#fff;border:none;padding:15px;border-radius:var(--radius-sm);font-family:'Inter',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:opacity 0.2s,transform 0.15s;display:flex;align-items:center;justify-content:center;gap:8px}
 .scan-btn:hover{opacity:0.88;transform:translateY(-1px)}
 .scan-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
@@ -957,3 +960,21 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 4
   color: var(--text2);
   line-height: 1.5;
 }
+
+/* Company Policy Source Modal */
+.modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,0.62);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+.modal-backdrop.show{display:flex}
+.policy-modal{width:min(520px,100%);background:var(--surface);border:1px solid var(--border2);border-radius:12px;box-shadow:0 24px 80px rgba(0,0,0,0.5);padding:20px}
+.policy-modal-header{display:flex;justify-content:space-between;gap:16px;margin-bottom:18px}
+.policy-modal-header h3{font-size:16px;font-weight:700;margin-bottom:6px}
+.policy-modal-header p{font-size:12px;color:var(--text2);line-height:1.5}
+.modal-close{background:var(--surface2);border:1px solid var(--border);color:var(--text2);width:30px;height:30px;border-radius:6px;cursor:pointer;font-size:18px;line-height:1}
+.modal-close:hover{color:var(--text);border-color:var(--border2)}
+.policy-label{display:block;font-size:11px;font-weight:700;color:var(--text2);margin-bottom:8px;text-transform:uppercase;letter-spacing:0.5px}
+.policy-input{width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;color:var(--text);font-family:'Inter',sans-serif;font-size:13px;padding:11px 12px;outline:none}
+.policy-input:focus{border-color:var(--accent)}
+.policy-help{font-size:11px;color:var(--text3);line-height:1.5;margin-top:8px}
+.policy-modal-status{font-size:12px;color:var(--text2);line-height:1.5;margin-top:14px;min-height:18px}
+.policy-modal-status.ok{color:var(--green)}
+.policy-modal-status.error{color:var(--red)}
+.policy-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}

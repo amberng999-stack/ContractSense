@@ -81,8 +81,9 @@
         <div class="rule-pill active" onclick="togglePill(this)"><span class="dot"></span>Employment Act 1955</div>
         <div class="rule-pill active" onclick="togglePill(this)"><span class="dot"></span>PDPA 2010</div>
         <div class="rule-pill active" onclick="togglePill(this)"><span class="dot"></span>Companies Act 2016</div>
-        <div class="rule-pill" onclick="togglePill(this)"><span class="dot"></span>Company policy</div>
+        <div class="rule-pill" id="company-policy-pill" onclick="openPolicyLinkModal()"><span class="dot"></span>Company policy</div>
       </div>
+      <div class="policy-source-status" id="policy-source-status">No company policy linked yet.</div>
     </div>
     <button class="scan-btn" id="scan-btn" disabled onclick="startScan()">🔍 Scan contract</button>
     <div class="progress-bar" id="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
@@ -386,6 +387,27 @@
           <button class="filter-btn btn-sm btn-disconnect" id="btn-disconnect-email" onclick="disconnectEmailInbox()">🔌 Disconnect Inbox</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Company Policy Source Modal -->
+<div class="modal-backdrop" id="policy-link-modal">
+  <div class="policy-modal">
+    <div class="policy-modal-header">
+      <div>
+        <h3>Link Company Policy</h3>
+        <p>Paste the SharePoint file link used as your company policy source.</p>
+      </div>
+      <button class="modal-close" onclick="closePolicyLinkModal()">×</button>
+    </div>
+    <label class="policy-label" for="policy-sharepoint-url">SharePoint policy file link</label>
+    <input class="policy-input" id="policy-sharepoint-url" placeholder="https://company.sharepoint.com/.../HR Policy.docx">
+    <div class="policy-help">When the SharePoint file changes, ContractSense syncs the latest version into the policy database.</div>
+    <div class="policy-modal-status" id="policy-modal-status"></div>
+    <div class="policy-modal-actions">
+      <button class="btn-ghost" onclick="closePolicyLinkModal()">Cancel</button>
+      <button class="btn-primary" id="policy-link-submit" onclick="linkCompanyPolicySource()">Link & sync</button>
     </div>
   </div>
 </div>
