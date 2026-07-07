@@ -1804,11 +1804,22 @@ function confirmWizardStep() {
   const normalizeText = (str) => (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const normOriginal = normalizeText(current.originalText);
   
+  const applyPrefix = (orig, rew) => {
+    const match = orig.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
+    if (!match) return rew;
+    const prefix = match[0];
+    const cleanRew = rew.trim();
+    if (cleanRew.startsWith(prefix.trim())) return rew;
+    return prefix + cleanRew;
+  };
+  
+  const finalRewrite = applyPrefix(current.originalText, editedRewrite);
+  
   for (let p of paragraphs) {
     const text = p.innerText || p.textContent;
     const normText = normalizeText(text);
     if (normText.includes(normOriginal) || normOriginal.includes(normText)) {
-      p.innerHTML = editedRewrite;
+      p.innerHTML = finalRewrite;
       p.setAttribute('data-wizard-hl', 'true');
       replaced = true;
       break;
@@ -1855,13 +1866,23 @@ function applyAllSuggestions() {
   let count = 0;
   const normalizeText = (str) => (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
   
+  const applyPrefix = (orig, rew) => {
+    const match = orig.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
+    if (!match) return rew;
+    const prefix = match[0];
+    const cleanRew = rew.trim();
+    if (cleanRew.startsWith(prefix.trim())) return rew;
+    return prefix + cleanRew;
+  };
+  
   _editorIssues.forEach(issue => {
     const normOriginal = normalizeText(issue.originalText);
+    const finalRewrite = applyPrefix(issue.originalText, issue.rewrite);
     for (let p of paragraphs) {
       const text = p.innerText || p.textContent;
       const normText = normalizeText(text);
       if (normText.includes(normOriginal) || normOriginal.includes(normText)) {
-        p.innerHTML = issue.rewrite;
+        p.innerHTML = finalRewrite;
         
         const logItem = document.createElement('div');
         logItem.className = 'applied-item';
