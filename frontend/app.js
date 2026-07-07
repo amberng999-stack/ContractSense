@@ -199,28 +199,63 @@ function onIssueClick(el, issueListElId, suggestionTextElId, copyBtnId) {
 
   const sEl = document.getElementById(suggestionTextElId);
   if (sEl) {
-    const getLawLink = (lawText) => {
-      if (!lawText) return '#';
+    const getLawTextWithPage = (lawText) => {
+      if (!lawText) return { text: '', url: '#' };
       const lower = lawText.toLowerCase();
+      
       if (lower.includes('employment act 1955') || lower.includes('employment act')) {
-        return 'https://lom.agc.gov.my/act-detail.php?language=BI&act=265';
+        let pageInfo = ' (Ref. PDF Act 265)';
+        if (lower.includes('60a')) pageInfo = ' (Ref. PDF Page 55)';
+        else if (lower.includes('37')) pageInfo = ' (Ref. PDF Page 34)';
+        else if (lower.includes('60fa')) pageInfo = ' (Ref. PDF Page 59)';
+        else if (lower.includes('12')) pageInfo = ' (Ref. PDF Page 16)';
+        return {
+          text: `📖 ${lawText}${pageInfo} ↗`,
+          url: 'https://lom.agc.gov.my/act-detail.php?language=BI&act=265'
+        };
       }
       if (lower.includes('pdpa') || lower.includes('personal data protection')) {
-        return 'https://lom.agc.gov.my/act-detail.php?language=BI&act=709';
+        let pageInfo = ' (Ref. PDF Act 709)';
+        if (lower.includes('6')) pageInfo = ' (Ref. PDF Page 15)';
+        return {
+          text: `📖 ${lawText}${pageInfo} ↗`,
+          url: 'https://lom.agc.gov.my/act-detail.php?language=BI&act=709'
+        };
       }
       if (lower.includes('companies act')) {
-        return 'https://lom.agc.gov.my/act-detail.php?language=BI&act=778';
+        let pageInfo = ' (Ref. PDF Act 778)';
+        if (lower.includes('66')) pageInfo = ' (Ref. PDF Page 44)';
+        else if (lower.includes('213')) pageInfo = ' (Ref. PDF Page 121)';
+        else if (lower.includes('235')) pageInfo = ' (Ref. PDF Page 130)';
+        return {
+          text: `📖 ${lawText}${pageInfo} ↗`,
+          url: 'https://lom.agc.gov.my/act-detail.php?language=BI&act=778'
+        };
       }
       if (lower.includes('contracts act 1950') || lower.includes('contracts act')) {
-        return 'https://lom.agc.gov.my/act-detail.php?language=BI&act=136';
+        let pageInfo = ' (Ref. PDF Act 136)';
+        if (lower.includes('75')) pageInfo = ' (Ref. PDF Page 45)';
+        else if (lower.includes('28')) pageInfo = ' (Ref. PDF Page 24)';
+        else if (lower.includes('29')) pageInfo = ' (Ref. PDF Page 25)';
+        else if (lower.includes('10')) pageInfo = ' (Ref. PDF Page 16)';
+        else if (lower.includes('13')) pageInfo = ' (Ref. PDF Page 18)';
+        else if (lower.includes('30')) pageInfo = ' (Ref. PDF Page 26)';
+        return {
+          text: `📖 ${lawText}${pageInfo} ↗`,
+          url: 'https://lom.agc.gov.my/act-detail.php?language=BI&act=136'
+        };
       }
-      return `https://www.google.com/search?q=${encodeURIComponent(lawText + " Malaysia")}`;
+      
+      return {
+        text: `📖 ${lawText} ↗`,
+        url: `https://www.google.com/search?q=${encodeURIComponent(lawText + " Malaysia")}`
+      };
     };
 
-    const lawLink = getLawLink(clause.law);
+    const lawMeta = getLawTextWithPage(clause.law);
     const lawBadgeHtml = clause.law
-      ? `<a href="${lawLink}" target="_blank" class="sug-law-badge" title="Click to view official Malaysian Law Document">
-           📖 ${clause.law} ↗
+      ? `<a href="${lawMeta.url}" target="_blank" class="sug-law-badge" title="Click to view official Malaysian Law Document">
+           ${lawMeta.text}
          </a>`
       : '';
 
