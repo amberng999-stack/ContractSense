@@ -101,7 +101,7 @@
         </div>
         <div class="bar-actions">
           <button class="btn-primary" style="padding:6px 14px;font-size:12px" onclick="openEditorFromScanner()">✏️ Edit</button>
-          <button class="btn-ghost" style="padding:6px 14px;font-size:12px" onclick="exportActiveContractDoc()">📥 Download Word</button>
+          <button class="btn-ghost" style="padding:6px 14px;font-size:12px" onclick="exportActiveContractPdf()">📥 Download PDF</button>
           <button class="sidebar-toggle" id="scanner-sidebar-toggle" onclick="toggleSidebar('scanner')">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
             <span id="scanner-sidebar-toggle-label">Hide panel</span>
@@ -235,7 +235,7 @@
     <h3 id="hd-title">–</h3>
     <div class="status-chips" id="hd-chips"></div>
     <button class="btn-primary" style="padding:6px 14px;font-size:12px;margin-right:10px" onclick="openEditorFromHistory()">✏️ Edit</button>
-    <button class="btn-ghost" style="padding:6px 14px;font-size:12px;margin-right:10px" onclick="exportActiveContractDoc()">📥 Download Word</button>
+    <button class="btn-ghost" style="padding:6px 14px;font-size:12px;margin-right:10px" onclick="exportActiveContractPdf()">📥 Download PDF</button>
     <button class="sidebar-toggle" id="history-sidebar-toggle" onclick="toggleSidebar('history')">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       <span id="history-sidebar-toggle-label">Hide panel</span>
@@ -283,7 +283,7 @@
       </div>
       <div class="editor-footer-bar">
         <button class="btn-primary" onclick="saveEditorChanges()">💾 Save changes</button>
-        <button class="btn-ghost" onclick="exportEditedDoc()">📥 Export as Word (.doc)</button>
+        <button class="btn-ghost" onclick="exportEditedPdf()">📥 Export as PDF</button>
       </div>
     </div>
     <div class="resize-divider" id="editor-resize-divider"></div>

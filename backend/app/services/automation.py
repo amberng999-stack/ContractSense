@@ -21,6 +21,47 @@ AUTO_IMPORT_PROCESSED_DIR = AUTO_IMPORT_DIR / "processed"
 # Semaphore to prevent multiple scans running at the same time
 _scan_lock = asyncio.Lock()
 
+def is_likely_contract(text: str) -> bool:
+    """
+    Implements a robust multi-criteria heuristic check to verify if a text is
+    actually a legal contract or agreement, avoiding false positives on unrelated files.
+    """
+    if not text or len(text.strip()) < 100:
+        return False
+        
+    text_lower = text.lower()
+    
+    # 1. Standard title indicators
+    titles = [
+        "agreement", "contract", "nda", "non-disclosure", "covenant", 
+        "terms of service", "terms and conditions", "memorandum of understanding",
+        "service level agreement", "sla", "employment contract"
+    ]
+    has_title = any(t in text_lower for t in titles)
+    
+    # 2. Opening/parties clause indicators
+    openings = [
+        "this agreement", "is made on", "by and between", "entered into",
+        "agree as follows", "parties agree", "hereinafter referred to",
+        "hereby agree", "mutual confidentiality", "disclosing party", "receiving party"
+    ]
+    has_opening = any(op in text_lower for op in openings)
+    
+    # 3. Execution/Signatures block indicators
+    signatures = [
+        "in witness whereof", "signed by", "authorized signatory", "execute",
+        "executed as a deed", "execution", "hand and seal", "written above"
+    ]
+    has_signature = any(sig in text_lower for sig in signatures)
+    
+    # Needs to satisfy at least 2 out of the 3 major indicators to be classified as a contract
+    score = 0
+    if has_title: score += 1
+    if has_opening: score += 1
+    if has_signature: score += 1
+    
+    return score >= 2
+
 async def process_incoming_contracts() -> list[dict]:
     """
     Checks AUTO_IMPORT_DIR for PDF/DOCX files, runs compliance checks,
@@ -57,10 +98,10 @@ async def process_incoming_contracts() -> list[dict]:
             print(f"Auto-import scanner: processing {filepath.name}...")
             try:
                 contract_text = extract_text_from_bytes(content, ext)
-                if not contract_text.strip():
-                    print(f"Auto-import scanner: empty text in {filepath.name}")
-                    # Move to processed folder as failed
-                    dest_path = AUTO_IMPORT_PROCESSED_DIR / f"failed_empty_{filepath.name}"
+                if not contract_text.strip() or not is_likely_contract(contract_text):
+                    print(f"Auto-import scanner: empty text or not classified as a contract in {filepath.name}. Skipping.")
+                    # Move to processed folder as skipped
+                    dest_path = AUTO_IMPORT_PROCESSED_DIR / f"ignored_non_contract_{filepath.name}"
                     shutil.move(str(filepath), str(dest_path))
                     continue
                     
@@ -289,16 +330,8 @@ async def process_email_contract_async(email_item: dict) -> None:
     try:
         # Extract text and run a quick contract validator check
         contract_text = extract_text_from_bytes(file_bytes, ext)
-        if not contract_text.strip():
-            return
-            
-        # Contract keyword heuristic check
-        keywords = ["agreement", "contract", "nda", "memorandum", "parties", "signatory", "hereby", "covenant", "liability", "warranty"]
-        text_lower = contract_text.lower()
-        is_contract = any(kw in text_lower for kw in keywords)
-        
-        if not is_contract:
-            print(f"IMAP scanner: attachment '{filename}' does not match contract heuristics. Ignoring.")
+        if not contract_text.strip() or not is_likely_contract(contract_text):
+            print(f"IMAP scanner: attachment '{filename}' empty or does not meet strict contract criteria. Ignoring.")
             return
             
         print(f"IMAP scanner: automatic screening contract '{filename}' from '{sender}'...")

@@ -1804,8 +1804,8 @@ function confirmWizardStep() {
   const normalizeText = (str) => (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const normOriginal = normalizeText(current.originalText);
   
-  const applyPrefix = (orig, rew) => {
-    const match = orig.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
+  const applyPrefix = (origText, rew) => {
+    const match = origText.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
     if (!match) return rew;
     const prefix = match[0];
     const cleanRew = rew.trim();
@@ -1813,12 +1813,11 @@ function confirmWizardStep() {
     return prefix + cleanRew;
   };
   
-  const finalRewrite = applyPrefix(current.originalText, editedRewrite);
-  
   for (let p of paragraphs) {
     const text = p.innerText || p.textContent;
     const normText = normalizeText(text);
     if (normText.includes(normOriginal) || normOriginal.includes(normText)) {
+      const finalRewrite = applyPrefix(text, editedRewrite);
       p.innerHTML = finalRewrite;
       p.setAttribute('data-wizard-hl', 'true');
       replaced = true;
@@ -1866,8 +1865,8 @@ function applyAllSuggestions() {
   let count = 0;
   const normalizeText = (str) => (str || '').replace(/\s+/g, ' ').trim().toLowerCase();
   
-  const applyPrefix = (orig, rew) => {
-    const match = orig.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
+  const applyPrefix = (origText, rew) => {
+    const match = origText.match(/^(\d+(?:\.\d+)*\.?|[A-Za-z]\.)\s+/);
     if (!match) return rew;
     const prefix = match[0];
     const cleanRew = rew.trim();
@@ -1877,11 +1876,11 @@ function applyAllSuggestions() {
   
   _editorIssues.forEach(issue => {
     const normOriginal = normalizeText(issue.originalText);
-    const finalRewrite = applyPrefix(issue.originalText, issue.rewrite);
     for (let p of paragraphs) {
       const text = p.innerText || p.textContent;
       const normText = normalizeText(text);
       if (normText.includes(normOriginal) || normOriginal.includes(normText)) {
+        const finalRewrite = applyPrefix(text, issue.rewrite);
         p.innerHTML = finalRewrite;
         
         const logItem = document.createElement('div');
@@ -1934,20 +1933,91 @@ async function saveEditorChanges() {
   }
 }
 
-function exportActiveContractDoc() {
+function exportActiveContractPdf() {
   if (!_activeContract) return;
   const docText = _activeContract.rawText || _activeContract.contract_text || '';
-  exportAsDoc(_activeContract.filename, docText);
+  exportAsPdf(_activeContract.filename, docText);
 }
 
-function exportEditedDoc() {
+function exportEditedPdf() {
   if (!_activeContract) return;
   
   const paper = document.getElementById('editor-textarea');
   const paragraphs = Array.from(paper.getElementsByTagName('p')).map(p => p.innerText || p.textContent);
   const docText = paragraphs.join('\n');
   
-  exportAsDoc(_activeContract.filename, docText);
+  exportAsPdf(_activeContract.filename, docText);
+}
+
+function exportAsPdf(filename, text) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) {
+    alert('Please allow popups to download PDF.');
+    return;
+  }
+  
+  const formattedText = text.split('\n').map(p => {
+    const clean = p.trim();
+    if (!clean) return '<p>&nbsp;</p>';
+    
+    const isHeading = /^[A-Z0-9\s\.\-\:]{3,60}$/.test(clean) || 
+                      /^\d+\.\s+[A-Z\s]{3,60}$/.test(clean) ||
+                      clean.toUpperCase().startsWith('NON-DISCLOSURE AGREEMENT') ||
+                      clean.toUpperCase().startsWith('MUTUAL CONFIDENTIALITY') ||
+                      clean.toUpperCase().startsWith('IN WITNESS WHEREOF') ||
+                      clean.toUpperCase().startsWith('BETWEEN:') ||
+                      clean.toUpperCase().startsWith('AND:') ||
+                      clean.toUpperCase().startsWith('DATE:');
+                      
+    if (isHeading) {
+      return `<h3 style="text-align:center; margin-top:24px; margin-bottom:12px; font-size:16px; font-weight:bold;">${clean}</h3>`;
+    }
+    return `<p style="text-align:justify; margin-bottom:12px; font-size:14px; text-indent: 0px;">${clean}</p>`;
+  }).join('');
+  
+  const pdfTitle = filename.replace(/\.[^/.]+$/, "");
+  
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>${pdfTitle}</title>
+      <style>
+        body {
+          font-family: 'Times New Roman', serif;
+          line-height: 1.6;
+          padding: 40px;
+          color: #000;
+          background: #fff;
+          max-width: 800px;
+          margin: 0 auto;
+        }
+        p {
+          margin: 0 0 12px 0;
+        }
+        @media print {
+          body {
+            padding: 0;
+            margin: 0;
+          }
+          @page {
+            margin: 2cm;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      ${formattedText}
+      <script>
+        window.onload = function() {
+          window.print();
+          setTimeout(function() { window.close(); }, 500);
+        };
+      </script>
+    </body>
+    </html>
+  `);
+  printWindow.document.close();
 }
 
 function exportAsDoc(filename, text) {
