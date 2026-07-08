@@ -61,11 +61,11 @@
       ondragover="this.classList.add('drag');event.preventDefault()"
       ondragleave="this.classList.remove('drag')"
       ondrop="handleDrop(event)">
-      <input type="file" id="file-input" accept=".pdf,.docx,.doc" onchange="handleFile(this)">
+      <input type="file" id="file-input" accept=".pdf,.docx,.txt,.md" multiple onchange="handleFile(this)">
       <div class="upload-icon">📄</div>
       <h3>Drop your contract here</h3>
       <p>or click to browse files</p>
-      <div class="filetypes">PDF, DOCX, DOC · Max 20 MB</div>
+      <div class="filetypes">PDF, DOCX, TXT, MD · Multiple files supported</div>
     </div>
     <div class="file-preview" id="file-preview">
       <div class="file-icon">📄</div>
@@ -145,7 +145,10 @@
     <div class="safe-icon">✅</div>
     <h2>Contract looks good</h2>
     <p>No compliance issues found. All clauses are consistent with the selected rules and laws.</p>
-    <button class="btn-primary" style="margin:28px auto 0;display:inline-flex" onclick="resetScanner()">Scan another</button>
+    <div class="safe-actions">
+      <button class="btn-primary" onclick="openExportModal('safe')">Save safe contract</button>
+      <button class="btn-ghost" onclick="resetScanner()">Scan another</button>
+    </div>
   </div>
 </div>
 
@@ -389,6 +392,29 @@
           <button class="filter-btn btn-sm btn-disconnect" id="btn-disconnect-email" onclick="disconnectEmailInbox()">🔌 Disconnect Inbox</button>
         </div>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Export Modal -->
+<div class="modal-backdrop" id="export-modal">
+  <div class="policy-modal">
+    <div class="policy-modal-header">
+      <div>
+        <h3>Save Contract</h3>
+        <p id="export-modal-subtitle">Choose a format and destination.</p>
+      </div>
+      <button class="modal-close" onclick="closeExportModal()">×</button>
+    </div>
+    <div class="export-choice-grid">
+      <button class="export-choice active" id="export-format-doc" onclick="setExportFormat('doc')">Word / DOC</button>
+      <button class="export-choice" id="export-format-pdf" onclick="setExportFormat('pdf')">PDF</button>
+    </div>
+    <div class="policy-help">Supported browsers can save into a selected folder and create `updated contract` or `safe contract` automatically. Other browsers will download the file.</div>
+    <div class="policy-modal-status" id="export-modal-status"></div>
+    <div class="policy-modal-actions">
+      <button class="btn-ghost" onclick="closeExportModal()">Cancel</button>
+      <button class="btn-primary" onclick="saveContractExport()">Save file</button>
     </div>
   </div>
 </div>

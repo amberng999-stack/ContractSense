@@ -38,6 +38,20 @@ def test_risk_score_maps_to_level() -> None:
     assert risk_level_from_score(score) in {"medium", "high", "critical"}
 
 
+def test_detects_employment_hours_and_non_compete() -> None:
+    text = """
+    1. EMPLOYMENT TERMS
+    1.1 The Employee shall work 60 hours per week as normal working hours.
+    1.2 After termination, the Employee shall not work for a competitor for two years.
+    """
+
+    findings = analyze_text(text)
+
+    ids = {finding.id for finding in findings}
+    assert any(fid.startswith("excessive-working-hours") for fid in ids)
+    assert any(fid.startswith("post-employment-non-compete") for fid in ids)
+
+
 def test_flat_clause_splitting() -> None:
     from app.services.clause_splitter import split_into_sections
     text = """

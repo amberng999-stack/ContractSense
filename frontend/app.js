@@ -405,12 +405,20 @@ function isAiErrorText(text) {
 // SCANNER — FILE UPLOAD
 // ═══════════════════════════════════════════
 let _selectedFile = null;
+let _selectedFiles = [];
+let _pendingBatchContracts = [];
 
 function handleFile(input) {
-  if (!input.files[0]) return;
-  _selectedFile = input.files[0];
-  document.getElementById('file-name').textContent = _selectedFile.name;
-  document.getElementById('file-size').textContent = (_selectedFile.size / 1024).toFixed(1) + ' KB';
+  if (!input.files || !input.files.length) return;
+  setSelectedFiles(Array.from(input.files));
+}
+
+function setSelectedFiles(files) {
+  _selectedFiles = files;
+  _selectedFile = files[0] || null;
+  const totalSizeKb = files.reduce((sum, file) => sum + file.size, 0) / 1024;
+  document.getElementById('file-name').textContent = files.length === 1 ? files[0].name : `${files.length} contracts selected`;
+  document.getElementById('file-size').textContent = `${totalSizeKb.toFixed(1)} KB total`;
   document.getElementById('file-preview').classList.add('show');
   document.getElementById('scan-btn').disabled = false;
 }
@@ -418,16 +426,15 @@ function handleFile(input) {
 function handleDrop(e) {
   e.preventDefault();
   document.getElementById('upload-zone').classList.remove('drag');
-  const f = e.dataTransfer.files[0]; if (!f) return;
-  _selectedFile = f;
-  document.getElementById('file-name').textContent = f.name;
-  document.getElementById('file-size').textContent = (f.size / 1024).toFixed(1) + ' KB';
-  document.getElementById('file-preview').classList.add('show');
-  document.getElementById('scan-btn').disabled = false;
+  const files = Array.from(e.dataTransfer.files || []);
+  if (!files.length) return;
+  setSelectedFiles(files);
 }
 
 function removeFile() {
   _selectedFile = null;
+  _selectedFiles = [];
+  _pendingBatchContracts = [];
   document.getElementById('file-preview').classList.remove('show');
   document.getElementById('scan-btn').disabled = true;
   document.getElementById('file-input').value = '';
@@ -605,6 +612,76 @@ async function startScan() {
   }
 }
 
+async function analyzeSingleFile(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('jurisdiction', 'Malaysia');
+  formData.append('language', 'English');
+
+  const response = await fetch(`${API_BASE}/api/contracts/analyze`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({ detail: 'Unknown error' }));
+    throw new Error(`${file.name}: ${err.detail || `Server error ${response.status}`}`);
+  }
+
+  const apiData = await response.json();
+  return mapApiResponseToContract(apiData, file);
+}
+
+function contractHasIssues(contract) {
+  return contract.sections.some(section => section.clauses.some(clause => clause.status !== 'ok'));
+}
+
+async function startScan() {
+  const filesToScan = _selectedFiles.length ? _selectedFiles : (_selectedFile ? [_selectedFile] : []);
+  if (!filesToScan.length) return;
+
+  const btn = document.getElementById('scan-btn');
+  const bar = document.getElementById('progress-bar');
+  const fill = document.getElementById('progress-fill');
+  const label = document.getElementById('progress-label');
+
+  btn.disabled = true;
+  bar.classList.add('show');
+  fill.style.background = '';
+  fill.style.width = '5%';
+  label.textContent = `Preparing ${filesToScan.length} contract${filesToScan.length > 1 ? 's' : ''}...`;
+
+  try {
+    const scannedContracts = [];
+    for (let i = 0; i < filesToScan.length; i++) {
+      const file = filesToScan[i];
+      label.textContent = `Scanning ${i + 1}/${filesToScan.length}: ${file.name}`;
+      fill.style.width = `${Math.max(8, Math.round((i / filesToScan.length) * 90))}%`;
+      scannedContracts.push(await analyzeSingleFile(file));
+    }
+
+    fill.style.width = '100%';
+    label.textContent = filesToScan.length === 1 ? 'Done!' : `Done! Scanned ${filesToScan.length} contracts.`;
+    await new Promise(resolve => setTimeout(resolve, 350));
+
+    SCAN_HISTORY.unshift(...scannedContracts);
+    saveLocalScanHistory();
+    buildHistoryList();
+
+    const issueContracts = scannedContracts.filter(contractHasIssues);
+    _pendingBatchContracts = issueContracts.slice(1);
+    _activeContract = issueContracts[0] || scannedContracts[0];
+    _chatHistory = [];
+    showResults(_activeContract);
+  } catch (err) {
+    fill.style.width = '100%';
+    fill.style.background = '#E84040';
+    label.textContent = `Error: ${err.message}`;
+    btn.disabled = false;
+    console.error('Scan failed:', err);
+  }
+}
+
 function showResults(contract) {
   toggleSeverityFilter(null, 'scanner');
   document.getElementById('upload-view').style.display = 'none';
@@ -693,6 +770,8 @@ function showResults(contract) {
 function resetScanner() {
   _activeContract = null;
   _selectedFile   = null;
+  _selectedFiles = [];
+  _pendingBatchContracts = [];
   document.getElementById('results-view').classList.remove('show');
   document.getElementById('safe-result').classList.remove('show');
   document.getElementById('upload-view').style.display = 'block';
@@ -1698,6 +1777,7 @@ function openEditor() {
   
   setEditMode('auto');
   updateWizardUI();
+  markBatchButtonState();
 }
 
 function backToSourcePage() {
@@ -2042,6 +2122,155 @@ function exportAsDoc(filename, text) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+let _exportState = { category: 'updated', format: 'doc' };
+
+function openExportModal(category = 'updated') {
+  if (!_activeContract) return;
+  _exportState = { category, format: 'doc' };
+  setExportFormat('doc');
+  const modal = document.getElementById('export-modal');
+  const status = document.getElementById('export-modal-status');
+  const subtitle = document.getElementById('export-modal-subtitle');
+  if (subtitle) {
+    subtitle.textContent = category === 'safe'
+      ? 'Save this safe contract into the safe contract folder.'
+      : 'Save the edited contract into the updated contract folder.';
+  }
+  if (status) {
+    status.textContent = '';
+    status.className = 'policy-modal-status';
+  }
+  modal?.classList.add('show');
+}
+
+function closeExportModal() {
+  document.getElementById('export-modal')?.classList.remove('show');
+}
+
+function setExportFormat(format) {
+  _exportState.format = format;
+  document.getElementById('export-format-doc')?.classList.toggle('active', format === 'doc');
+  document.getElementById('export-format-pdf')?.classList.toggle('active', format === 'pdf');
+}
+
+async function saveContractExport() {
+  if (!_activeContract) return;
+  const status = document.getElementById('export-modal-status');
+  const text = getCurrentContractTextForExport();
+  const baseName = (_activeContract.filename || 'contract').replace(/\.[^/.]+$/, '');
+  const folderName = _exportState.category === 'safe' ? 'safe contract' : 'updated contract';
+
+  try {
+    if (_exportState.format === 'pdf') {
+      openPrintToPdfWindow(baseName, text);
+      if (status) {
+        status.textContent = 'PDF print dialog opened. Choose "Save as PDF" to select the destination.';
+        status.className = 'policy-modal-status ok';
+      }
+      return;
+    }
+
+    const blob = buildWordBlob(text);
+    const fileName = `${baseName}_${_exportState.category}.doc`;
+    await saveBlobToFolderOrDownload(blob, fileName, folderName);
+    if (status) {
+      status.textContent = `Saved ${fileName}.`;
+      status.className = 'policy-modal-status ok';
+    }
+    markBatchButtonState();
+  } catch (err) {
+    if (status) {
+      status.textContent = err.message;
+      status.className = 'policy-modal-status error';
+    }
+  }
+}
+
+function getCurrentContractTextForExport() {
+  const editorActive = document.getElementById('page-editor')?.classList.contains('active');
+  if (editorActive) {
+    const paper = document.getElementById('editor-textarea');
+    return Array.from(paper.getElementsByTagName('p')).map(p => p.innerText || p.textContent).join('\n');
+  }
+  return _activeContract?.rawText || '';
+}
+
+function buildWordBlob(text) {
+  const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' "+
+        "xmlns:w='urn:schemas-microsoft-com:office:word' "+
+        "xmlns='http://www.w3.org/TR/REC-html40'>"+
+        "<head><title>ContractSense Export</title><style>body { font-family: 'Times New Roman', serif; line-height: 1.5; padding: 20px; }</style></head><body>";
+  const footer = "</body></html>";
+  const formattedText = text.split('\n').map(p => p.trim() ? `<p>${escapeHtml(p)}</p>` : '<br>').join('');
+  return new Blob(['\ufeff' + header + formattedText + footer], { type: 'application/msword' });
+}
+
+async function saveBlobToFolderOrDownload(blob, fileName, folderName) {
+  if ('showDirectoryPicker' in window) {
+    const root = await window.showDirectoryPicker();
+    const targetDir = await root.getDirectoryHandle(folderName, { create: true });
+    const fileHandle = await targetDir.getFileHandle(fileName, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return;
+  }
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${folderName.replace(/\s+/g, '_')}__${fileName}`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function openPrintToPdfWindow(filename, text) {
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) throw new Error('Please allow popups to export PDF.');
+  const escaped = escapeHtml(text).replace(/\n/g, '<br>');
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>${escapeHtml(filename)} PDF Export</title>
+        <style>
+          body { font-family: "Times New Roman", serif; line-height: 1.55; padding: 32px; }
+          h1 { font-size: 18px; }
+        </style>
+      </head>
+      <body>
+        <h1>${escapeHtml(filename)}</h1>
+        <div>${escaped}</div>
+      </body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+}
+
+function markBatchButtonState() {
+  const btn = document.getElementById('next-batch-btn');
+  if (!btn) return;
+  btn.style.display = _pendingBatchContracts.length ? 'inline-flex' : 'none';
+}
+
+function openNextBatchContract() {
+  if (!_pendingBatchContracts.length) {
+    alert('No more scanned contracts waiting for edit.');
+    return;
+  }
+  _activeContract = _pendingBatchContracts.shift();
+  _chatHistory = [];
+  document.getElementById('page-editor').classList.remove('active');
+  document.getElementById('page-scanner').classList.add('active');
+  document.getElementById('results-view').classList.remove('show');
+  document.getElementById('safe-result').classList.remove('show');
+  showResults(_activeContract);
+  openEditorFromScanner();
 }
 
 

@@ -194,6 +194,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 4
 .safe-icon{width:72px;height:72px;background:rgba(46,204,143,0.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 20px}
 .safe-result h2{font-family:'Luckiest Guy',cursive;font-size:24px;font-weight:800;margin-bottom:10px}
 .safe-result p{font-size:14px;color:var(--text2);max-width:400px;margin:0 auto}
+.safe-actions{display:flex;gap:12px;justify-content:center;margin-top:28px;flex-wrap:wrap}
 
 /* ── HISTORY LIST ── */
 .history-wrap{padding:40px;max-width:900px;margin:0 auto}
@@ -978,3 +979,7 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 4
 .policy-modal-status.ok{color:var(--green)}
 .policy-modal-status.error{color:var(--red)}
 .policy-modal-actions{display:flex;justify-content:flex-end;gap:10px;margin-top:18px}
+.export-choice-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.export-choice{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.export-choice.active{background:rgba(79,142,247,0.16);border-color:var(--accent);color:var(--accent)}
+.export-choice:hover{border-color:var(--border2);color:var(--text)}
