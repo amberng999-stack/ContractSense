@@ -189,3 +189,44 @@ def _looks_like_real_flat_structure(text: str, flat_matches: list) -> bool:
 def flatten_clauses(sections: list[Section]) -> list[Clause]:
     """Convenience helper: returns every clause across all sections as a flat list."""
     return [clause for section in sections for clause in section.clauses]
+
+
+def to_numbered_lines(sections: list[Section]) -> list[str]:
+    """
+    Flattens sections/clauses into "[SECTION ...]" / "[Clause X.Y] ..."
+    lines. This gives the LLM stable, citable anchors — prompts built
+    from this output can require "cite the clause id for every claim",
+    which is what actually reduces hallucination, instead of the model
+    paraphrasing a raw text blob with no addressable structure.
+    """
+    lines: list[str] = []
+    for section in sections:
+        if section.title:
+            lines.append(f"[SECTION {section.title}]")
+        for clause in section.clauses:
+            lines.append(f"[Clause {clause.id}] {clause.text}")
+    return lines
+
+
+def format_structured_contract(text: str, max_chars: int = 16000) -> str:
+    """
+    Formats contract text into a numbered clause structure so downstream
+    LLM prompts can require exact clause-id citations instead of loose
+    paraphrasing. If the structured text still exceeds max_chars, it is
+    truncated with an EXPLICIT marker — so the model is told the contract
+    continues beyond what it saw, rather than silently seeing a cut-off
+    document and assuming it read everything (this was the original bug:
+    contracts were silently truncated with no signal to the model that
+    later clauses were never reviewed).
+    """
+    sections = split_into_sections(text)
+    lines = to_numbered_lines(sections)
+    structured = "\n".join(lines).strip() or " ".join(text.split())
+    if len(structured) > max_chars:
+        structured = (
+            structured[:max_chars].rstrip()
+            + "\n[...TRUNCATED — contract continues beyond this point. "
+            "Do not assume the omitted part is compliant; state that the "
+            "remainder still needs verification.]"
+        )
+    return structured

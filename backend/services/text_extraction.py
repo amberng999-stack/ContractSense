@@ -65,6 +65,36 @@ def _decode_text(content: bytes) -> str:
 
 
 def _extract_pdf(content: bytes) -> str:
+    """
+    Extracts PDF text using pdfplumber first, since it handles tables,
+    multi-column layouts, and irregular spacing far more reliably than
+    pypdf (pypdf frequently mangles word order/whitespace on real-world
+    contract PDFs, which was the root cause of downstream LLM analysis
+    reading garbled text). Falls back to pypdf only if pdfplumber fails
+    or the PDF is unreadable by it (e.g. certain malformed files).
+    """
+    text = _extract_pdf_pdfplumber(content)
+    if text.strip():
+        return text
+    return _extract_pdf_pypdf(content)
+
+
+def _extract_pdf_pdfplumber(content: bytes) -> str:
+    try:
+        import pdfplumber
+    except ImportError:
+        return ""
+    try:
+        with pdfplumber.open(BytesIO(content)) as pdf:
+            pages = [page.extract_text() or "" for page in pdf.pages]
+        return "\n".join(pages).strip()
+    except Exception:
+        # Malformed/unsupported PDF for pdfplumber — let the pypdf
+        # fallback have a try instead of failing the whole request.
+        return ""
+
+
+def _extract_pdf_pypdf(content: bytes) -> str:
     try:
         from pypdf import PdfReader
     except ImportError as exc:
