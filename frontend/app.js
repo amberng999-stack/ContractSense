@@ -866,8 +866,11 @@ function saveLocalScanHistory() {
 }
 
 let SCAN_HISTORY = loadLocalScanHistory();
+let _activeHistoryFilter = 'all';
+let _activeHistorySearch = '';
 
 async function loadScanHistory(isSilent = false, searchQuery = '') {
+  _activeHistorySearch = searchQuery;
   const btn = document.getElementById('btn-refresh-history');
   if (btn && !isSilent) btn.textContent = '🔄 Syncing...';
   
@@ -907,6 +910,7 @@ function onHistorySearch() {
   clearTimeout(_historySearchTimeout);
   _historySearchTimeout = setTimeout(async () => {
     const query = document.getElementById('history-search-input').value.trim();
+    _activeHistorySearch = query;
     await loadScanHistory(false, query);
   }, 300);
 }
@@ -1044,25 +1048,68 @@ function updateAutomatedScansCount() {
   if (el) el.textContent = count;
 }
 
-function buildHistoryList(filter = 'all') {
+function getHistoryStatus(contract) {
+  if (!contract) return 'safe';
+  if (['safe', 'issues', 'critical'].includes(contract.status)) return contract.status;
+  const clauses = (contract.sections || []).flatMap(section => section.clauses || []);
+  if (clauses.some(clause => clause.status === 'bad')) return 'critical';
+  if (clauses.some(clause => clause.status === 'warn')) return 'issues';
+  return 'safe';
+}
+
+function matchesHistorySearch(contract, query) {
+  if (!query) return true;
+  const needle = query.toLowerCase();
+  return [
+    contract.filename,
+    contract.company,
+    contract.summary,
+    contract.rawText,
+    contract.contract_text,
+  ].some(value => String(value || '').toLowerCase().includes(needle));
+}
+
+function getFilteredHistoryRows() {
+  return SCAN_HISTORY.filter(contract => {
+    const status = getHistoryStatus(contract);
+    const statusMatches = _activeHistoryFilter === 'all' || status === _activeHistoryFilter;
+    return statusMatches && matchesHistorySearch(contract, _activeHistorySearch);
+  });
+}
+
+function renderHistoryStatusBadge(contract) {
+  const status = getHistoryStatus(contract);
+  const label = status === 'safe' ? '✓ Safe' : status === 'issues' ? '⚠ Issues' : '✕ Critical';
+  return `<div class="status-badge ${status}">${label}</div>`;
+}
+
+function syncHistoryFilterButtons(activeButton = null) {
+  const buttons = document.querySelectorAll('.history-filters .filter-btn[data-history-filter]');
+  buttons.forEach(button => {
+    const isActive = activeButton ? button === activeButton : button.dataset.historyFilter === _activeHistoryFilter;
+    button.classList.toggle('active', isActive);
+  });
+}
+
+function buildHistoryList(filter = _activeHistoryFilter) {
+  _activeHistoryFilter = filter || 'all';
+  syncHistoryFilterButtons();
   // 1. General history table
   const body = document.getElementById('history-table-body');
   if (body) {
-    const rows = SCAN_HISTORY.filter(c => filter === 'all' || c.status === filter);
+    const rows = getFilteredHistoryRows();
     body.innerHTML = rows.map(c => `
       <div class="table-row">
         <div class="date-col">${c.date}<div class="time">${c.time}</div></div>
         <span class="contract-link" onclick="openHistoryDetail(${c.id})">${c.filename}</span>
         <span class="company-col">${c.company}</span>
-        <span><div class="status-badge ${c.status}">${
-          c.status === 'safe' ? '✓ Safe' : c.status === 'issues' ? '⚠ Issues' : '✕ Critical'
-        }</div></span>
+        <span>${renderHistoryStatusBadge(c)}</span>
         <span style="display:flex;gap:4px">
           <button class="view-btn" onclick="openHistoryDetail(${c.id})">View</button>
           <button class="view-btn" style="border-color:var(--red);color:var(--red)" onclick="deleteHistoryItem(${c.id}, event)">✕</button>
         </span>
       </div>
-    `).join('');
+    `).join('') || `<div class="table-empty">No ${_activeHistoryFilter === 'all' ? '' : _activeHistoryFilter} contracts found.</div>`;
   }
 
   // 2. Automatically scanned contracts table (Auto-Scan tab)
@@ -1074,9 +1121,7 @@ function buildHistoryList(filter = 'all') {
         <div class="date-col">${c.date}<div class="time">${c.time}</div></div>
         <span class="contract-link" onclick="openHistoryDetail(${c.id})">${c.filename}</span>
         <span class="company-col">${c.company}</span>
-        <span><div class="status-badge ${c.status}">${
-          c.status === 'safe' ? '✓ Safe' : c.status === 'issues' ? '⚠ Issues' : '✕ Critical'
-        }</div></span>
+        <span>${renderHistoryStatusBadge(c)}</span>
         <span style="display:flex;gap:4px">
           <button class="view-btn" onclick="openHistoryDetail(${c.id})">View</button>
           <button class="view-btn" style="border-color:var(--red);color:var(--red)" onclick="deleteHistoryItem(${c.id}, event)">✕</button>
@@ -1087,8 +1132,8 @@ function buildHistoryList(filter = 'all') {
 }
 
 function filterHistory(btn, filter) {
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
+  _activeHistoryFilter = filter;
+  syncHistoryFilterButtons(btn);
   buildHistoryList(filter);
 }
 
@@ -2143,74 +2188,7 @@ function exportEditedPdf() {
 }
 
 function exportAsPdf(filename, text) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) {
-    alert('Please allow popups to download PDF.');
-    return;
-  }
-  
-  const formattedText = text.split('\n').map(p => {
-    const clean = p.trim();
-    if (!clean) return '<p>&nbsp;</p>';
-    
-    const isHeading = /^[A-Z0-9\s\.\-\:]{3,60}$/.test(clean) || 
-                      /^\d+\.\s+[A-Z\s]{3,60}$/.test(clean) ||
-                      clean.toUpperCase().startsWith('NON-DISCLOSURE AGREEMENT') ||
-                      clean.toUpperCase().startsWith('MUTUAL CONFIDENTIALITY') ||
-                      clean.toUpperCase().startsWith('IN WITNESS WHEREOF') ||
-                      clean.toUpperCase().startsWith('BETWEEN:') ||
-                      clean.toUpperCase().startsWith('AND:') ||
-                      clean.toUpperCase().startsWith('DATE:');
-                      
-    if (isHeading) {
-      return `<h3 style="text-align:center; margin-top:24px; margin-bottom:12px; font-size:16px; font-weight:bold;">${clean}</h3>`;
-    }
-    return `<p style="text-align:justify; margin-bottom:12px; font-size:14px; text-indent: 0px;">${clean}</p>`;
-  }).join('');
-  
-  const pdfTitle = filename.replace(/\.[^/.]+$/, "");
-  
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>${pdfTitle}</title>
-      <style>
-        body {
-          font-family: 'Times New Roman', serif;
-          line-height: 1.6;
-          padding: 40px;
-          color: #000;
-          background: #fff;
-          max-width: 800px;
-          margin: 0 auto;
-        }
-        p {
-          margin: 0 0 12px 0;
-        }
-        @media print {
-          body {
-            padding: 0;
-            margin: 0;
-          }
-          @page {
-            margin: 2cm;
-          }
-        }
-      </style>
-    </head>
-    <body>
-      ${formattedText}
-      <script>
-        window.onload = function() {
-          window.print();
-          setTimeout(function() { window.close(); }, 500);
-        };
-      </script>
-    </body>
-    </html>
-  `);
-  printWindow.document.close();
+  printContractInPlace(filename.replace(/\.[^/.]+$/, ""), text);
 }
 
 function exportAsDoc(filename, text) {
@@ -2237,12 +2215,12 @@ function exportAsDoc(filename, text) {
   URL.revokeObjectURL(url);
 }
 
-let _exportState = { category: 'updated', format: 'doc' };
+let _exportState = { category: 'updated', format: 'file' };
 
 function openExportModal(category = 'updated') {
   if (!_activeContract) return;
-  _exportState = { category, format: 'doc' };
-  setExportFormat('doc');
+  _exportState = { category, format: 'file' };
+  setExportFormat('file');
   const modal = document.getElementById('export-modal');
   const status = document.getElementById('export-modal-status');
   const subtitle = document.getElementById('export-modal-subtitle');
@@ -2264,8 +2242,10 @@ function closeExportModal() {
 
 function setExportFormat(format) {
   _exportState.format = format;
-  document.getElementById('export-format-doc')?.classList.toggle('active', format === 'doc');
-  document.getElementById('export-format-pdf')?.classList.toggle('active', format === 'pdf');
+  document.getElementById('export-format-doc')?.classList.toggle('active', format === 'file');
+  document.getElementById('export-format-pdf')?.classList.toggle('active', format === 'print');
+  const saveBtn = document.querySelector('#export-modal .btn-primary');
+  if (saveBtn) saveBtn.textContent = format === 'print' ? 'Print' : 'Save file';
 }
 
 async function saveContractExport() {
@@ -2276,24 +2256,29 @@ async function saveContractExport() {
   const folderName = _exportState.category === 'safe' ? 'safe contract' : 'updated contract';
 
   try {
-    if (_exportState.format === 'pdf') {
-      openPrintToPdfWindow(baseName, text);
+    if (_exportState.format === 'print') {
+      printContractInPlace(baseName, text);
       if (status) {
-        status.textContent = 'PDF print dialog opened. Choose "Save as PDF" to select the destination.';
+        status.textContent = 'Print dialog opened. Choose "Save as PDF" in the print destination if needed.';
         status.className = 'policy-modal-status ok';
       }
       return;
     }
 
-    const blob = buildWordBlob(text);
-    const fileName = `${baseName}_${_exportState.category}.doc`;
-    await saveBlobToFolderOrDownload(blob, fileName, folderName);
+    const savedName = await saveDocOrPdfFile(baseName, text, _exportState.category, folderName);
     if (status) {
-      status.textContent = `Saved ${fileName}.`;
+      status.textContent = savedName ? `Saved ${savedName}.` : 'Save cancelled.';
       status.className = 'policy-modal-status ok';
     }
-    markBatchButtonState();
+    if (savedName) markBatchButtonState();
   } catch (err) {
+    if (isPickerAbort(err)) {
+      if (status) {
+        status.textContent = 'Save cancelled.';
+        status.className = 'policy-modal-status';
+      }
+      return;
+    }
     if (status) {
       status.textContent = err.message;
       status.className = 'policy-modal-status error';
@@ -2341,17 +2326,154 @@ async function saveBlobToFolderOrDownload(blob, fileName, folderName) {
   URL.revokeObjectURL(url);
 }
 
-function openPrintToPdfWindow(filename, text) {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) throw new Error('Please allow popups to export PDF.');
+async function saveDocOrPdfFile(baseName, text, category, folderName) {
+  const defaultName = `${baseName}_${category}.doc`;
+  if ('showSaveFilePicker' in window) {
+    const handle = await window.showSaveFilePicker({
+      suggestedName: defaultName,
+      types: [
+        {
+          description: 'Word / DOC',
+          accept: { 'application/msword': ['.doc'] },
+        },
+        {
+          description: 'PDF',
+          accept: { 'application/pdf': ['.pdf'] },
+        },
+      ],
+    });
+    const fileName = handle.name || defaultName;
+    const lowerName = fileName.toLowerCase();
+    const blob = lowerName.endsWith('.pdf') ? buildSimplePdfBlob(text) : buildWordBlob(text);
+    const writable = await handle.createWritable();
+    await writable.write(blob);
+    await writable.close();
+    return fileName;
+  }
+
+  const blob = buildWordBlob(text);
+  const fileName = `${baseName}_${category}.doc`;
+  await saveBlobToFolderOrDownload(blob, fileName, folderName);
+  return fileName;
+}
+
+function isPickerAbort(err) {
+  return err && (err.name === 'AbortError' || /aborted|cancel/i.test(err.message || ''));
+}
+
+function buildSimplePdfBlob(text) {
+  const pageWidth = 595;
+  const pageHeight = 842;
+  const marginX = 56;
+  const startY = 790;
+  const lineHeight = 15;
+  const maxChars = 88;
+  const lines = wrapPdfLines(text, maxChars);
+  const linesPerPage = Math.floor((startY - 60) / lineHeight);
+  const pages = [];
+  for (let i = 0; i < lines.length; i += linesPerPage) {
+    pages.push(lines.slice(i, i + linesPerPage));
+  }
+  if (!pages.length) pages.push(['']);
+
+  const objects = [];
+  const addObject = (body) => {
+    objects.push(body);
+    return objects.length;
+  };
+
+  const catalogId = addObject('<< /Type /Catalog /Pages 2 0 R >>');
+  const pagesId = addObject('');
+  const fontId = addObject('<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman >>');
+  const pageIds = [];
+  const contentIds = [];
+
+  pages.forEach(pageLines => {
+    const content = buildPdfContent(pageLines, marginX, startY, lineHeight);
+    const contentId = addObject(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`);
+    const pageId = addObject(`<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    contentIds.push(contentId);
+    pageIds.push(pageId);
+  });
+
+  objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map(id => `${id} 0 R`).join(' ')}] /Count ${pageIds.length} >>`;
+
+  let pdf = '%PDF-1.4\n';
+  const offsets = [0];
+  objects.forEach((body, idx) => {
+    offsets.push(pdf.length);
+    pdf += `${idx + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xrefOffset = pdf.length;
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (let i = 1; i < offsets.length; i++) {
+    pdf += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+  pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`;
+  return new Blob([pdf], { type: 'application/pdf' });
+}
+
+function wrapPdfLines(text, maxChars) {
+  const result = [];
+  text.split(/\r?\n/).forEach(paragraph => {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (!words.length) {
+      result.push('');
+      return;
+    }
+    let line = '';
+    words.forEach(word => {
+      const candidate = line ? `${line} ${word}` : word;
+      if (candidate.length > maxChars && line) {
+        result.push(line);
+        line = word;
+      } else {
+        line = candidate;
+      }
+    });
+    if (line) result.push(line);
+  });
+  return result;
+}
+
+function buildPdfContent(lines, marginX, startY, lineHeight) {
+  const commands = ['BT', '/F1 11 Tf', `${marginX} ${startY} Td`];
+  lines.forEach((line, idx) => {
+    if (idx > 0) commands.push(`0 -${lineHeight} Td`);
+    commands.push(`(${escapePdfText(line)}) Tj`);
+  });
+  commands.push('ET');
+  return commands.join('\n');
+}
+
+function escapePdfText(text) {
+  return String(text).replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)');
+}
+
+function printContractInPlace(filename, text) {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.setAttribute('aria-hidden', 'true');
+  document.body.appendChild(iframe);
+  let printed = false;
+
   const escaped = escapeHtml(text).replace(/\n/g, '<br>');
-  printWindow.document.write(`
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`
+    <!DOCTYPE html>
     <html>
       <head>
         <title>${escapeHtml(filename)} PDF Export</title>
         <style>
-          body { font-family: "Times New Roman", serif; line-height: 1.55; padding: 32px; }
+          body { font-family: "Times New Roman", serif; line-height: 1.55; padding: 32px; color:#000; background:#fff; }
           h1 { font-size: 18px; }
+          @page { margin: 2cm; }
         </style>
       </head>
       <body>
@@ -2360,9 +2482,19 @@ function openPrintToPdfWindow(filename, text) {
       </body>
     </html>
   `);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+  doc.close();
+
+  const printOnce = () => {
+    if (printed) return;
+    printed = true;
+    iframe.contentWindow.focus();
+    iframe.contentWindow.print();
+    setTimeout(() => iframe.remove(), 600);
+  };
+  iframe.onload = printOnce;
+  setTimeout(() => {
+    if (document.body.contains(iframe)) printOnce();
+  }, 100);
 }
 
 function markBatchButtonState() {
