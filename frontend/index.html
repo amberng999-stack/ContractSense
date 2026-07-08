@@ -212,10 +212,10 @@
 
     <div class="history-filters">
       <input type="text" id="history-search-input" class="search-input" placeholder="🔍 Search name or content..." oninput="onHistorySearch()">
-      <button class="filter-btn active" onclick="filterHistory(this,'all')">All</button>
-      <button class="filter-btn" onclick="filterHistory(this,'safe')">Safe</button>
-      <button class="filter-btn" onclick="filterHistory(this,'issues')">Issues</button>
-      <button class="filter-btn" onclick="filterHistory(this,'critical')">Critical</button>
+      <button class="filter-btn active" data-history-filter="all" onclick="filterHistory(this,'all')">All</button>
+      <button class="filter-btn" data-history-filter="safe" onclick="filterHistory(this,'safe')">Safe</button>
+      <button class="filter-btn" data-history-filter="issues" onclick="filterHistory(this,'issues')">Issues</button>
+      <button class="filter-btn" data-history-filter="critical" onclick="filterHistory(this,'critical')">Critical</button>
       <button class="filter-btn" id="clear-history-btn" onclick="clearScanHistory()" style="margin-left:auto">Clear history</button>
     </div>
     <div class="history-table">
@@ -409,10 +409,10 @@
       <button class="modal-close" onclick="closeExportModal()">×</button>
     </div>
     <div class="export-choice-grid">
-      <button class="export-choice active" id="export-format-doc" onclick="setExportFormat('doc')">Word / DOC</button>
-      <button class="export-choice" id="export-format-pdf" onclick="setExportFormat('pdf')">PDF</button>
+      <button class="export-choice active" id="export-format-doc" onclick="setExportFormat('file')">Doc/PDF</button>
+      <button class="export-choice" id="export-format-pdf" onclick="setExportFormat('print')">Print as PDF</button>
     </div>
-    <div class="policy-help">Supported browsers can save into a selected folder and create `updated contract` or `safe contract` automatically. Other browsers will download the file.</div>
+    <div class="policy-help">Doc/PDF opens the file save dialog. Print as PDF opens the browser print dialog without opening a new tab.</div>
     <div class="policy-modal-status" id="export-modal-status"></div>
     <div class="policy-modal-actions">
       <button class="btn-ghost" onclick="closeExportModal()">Cancel</button>
