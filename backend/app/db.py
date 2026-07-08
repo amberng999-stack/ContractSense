@@ -2,7 +2,7 @@ import sqlite3
 import json
 import re
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from app.config import get_settings
 
 DB_PATH = Path("data") / "contractsense.db"
@@ -138,7 +138,9 @@ def extract_company_from_text(text: str) -> str:
     return "—"
 
 def get_current_date_time_malaysia():
-    now = datetime.now()
+    # Malaysia is UTC+8
+    tz_malaysia = timezone(timedelta(hours=8))
+    now = datetime.now(tz_malaysia)
     date_str = now.strftime("%d %b %Y")  # e.g., "23 Jun 2026"
     time_str = now.strftime("%I:%M %p")  # e.g., "09:42 PM"
     return date_str, time_str
@@ -147,6 +149,12 @@ def save_contract(record: dict) -> int:
     conn = get_db_connection()
     cursor = conn.cursor()
     
+    # Remove existing contract(s) with the same filename to avoid duplicates in history
+    filename = record.get("file_name")
+    if filename:
+        p = get_placeholder()
+        cursor.execute(f"DELETE FROM contracts WHERE file_name = {p}", (filename,))
+        
     date_str, time_str = get_current_date_time_malaysia()
     
     risk_level = record.get("risk_level", "low")

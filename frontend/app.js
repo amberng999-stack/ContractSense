@@ -272,9 +272,8 @@ let _activeContract = null;
 // into the sections/clauses shape our renderer expects
 // ═══════════════════════════════════════════
 function mapApiResponseToContract(apiResponse, file) {
-  const now    = new Date();
-  const date   = now.toLocaleDateString('en-MY', { day:'2-digit', month:'short', year:'numeric' });
-  const time   = now.toLocaleTimeString('en-MY', { hour:'2-digit', minute:'2-digit' });
+  const date   = apiResponse.date || new Date().toLocaleDateString('en-MY', { day:'2-digit', month:'short', year:'numeric' });
+  const time   = apiResponse.time || new Date().toLocaleTimeString('en-MY', { hour:'2-digit', minute:'2-digit' });
 
   // Group findings by category, preserving the order categories first appear in
   // (this matches the original document's section order, since the backend
@@ -407,6 +406,7 @@ function isAiErrorText(text) {
 let _selectedFile = null;
 let _selectedFiles = [];
 let _pendingBatchContracts = [];
+let _currentBatchContracts = [];
 let _companyPolicyLinked = false;
 let _companyPolicyIncluded = false;
 let _lastPolicySourceStatus = null;
@@ -721,10 +721,15 @@ async function startScan() {
     label.textContent = filesToScan.length === 1 ? 'Done!' : `Done! Scanned ${filesToScan.length} contracts.`;
     await new Promise(resolve => setTimeout(resolve, 350));
 
+    // Filter out duplicates from SCAN_HISTORY
+    const newFilenames = scannedContracts.map(c => c.filename);
+    SCAN_HISTORY = SCAN_HISTORY.filter(c => !newFilenames.includes(c.filename));
+
     SCAN_HISTORY.unshift(...scannedContracts);
     saveLocalScanHistory();
     buildHistoryList();
 
+    _currentBatchContracts = scannedContracts;
     const issueContracts = scannedContracts.filter(contractHasIssues);
     _pendingBatchContracts = issueContracts.slice(1);
     _activeContract = issueContracts[0] || scannedContracts[0];
@@ -747,21 +752,39 @@ function showResults(contract) {
 
   const hasIssues = contract.sections.some(s => s.clauses.some(c => c.status !== 'ok'));
 
-  if (!hasIssues) {
+  // Handle batch selection display
+  const select = document.getElementById('batch-contract-select');
+  const filenameHeader = document.getElementById('results-filename');
+  
+  if (_currentBatchContracts && _currentBatchContracts.length > 1) {
+    filenameHeader.style.display = 'none';
+    select.style.display = 'block';
+    
+    // Populate select
+    select.innerHTML = _currentBatchContracts.map((c, idx) => {
+      const cHasIssues = c.sections.some(s => s.clauses.some(cl => cl.status !== 'ok'));
+      const statusLabel = cHasIssues ? '⚠ Issues' : '✓ Safe';
+      return `<option value="${idx}" ${c.filename === contract.filename ? 'selected' : ''}>${c.filename} (${statusLabel})</option>`;
+    }).join('');
+  } else {
+    filenameHeader.style.display = 'block';
+    filenameHeader.textContent = contract.filename;
+    select.style.display = 'none';
+  }
+
+  // If single contract and it is safe, show the dedicated full-page safe view
+  if (!hasIssues && (!_currentBatchContracts || _currentBatchContracts.length <= 1)) {
     document.getElementById('safe-result').classList.add('show');
+    document.getElementById('results-view').classList.remove('show');
     return;
   }
 
-  document.getElementById('results-filename').textContent = contract.filename;
+  // Make sure results view is shown and safe view is hidden
+  document.getElementById('safe-result').classList.remove('show');
   document.getElementById('results-view').classList.add('show');
 
-  const allC = contract.sections.flatMap(s => s.clauses);
-  document.getElementById('s-chip-ok').textContent   = `✓ ${allC.filter(c=>c.status==='ok').length} safe`;
-  document.getElementById('s-chip-warn').textContent = `⚠ ${allC.filter(c=>c.status==='warn').length} warn`;
-  document.getElementById('s-chip-bad').textContent  = `✕ ${allC.filter(c=>c.status==='bad').length} critical`;
-
+  // Render Left Panel (PDF or Fallback text)
   if (contract.pdfBase64) {
-    // PDF-native mode: render the REAL PDF via PDF.js with coordinate highlights
     document.getElementById('contract-page-content').style.display = 'none';
     const pdfViewerEl = document.getElementById('pdf-viewer');
     pdfViewerEl.style.display = 'flex';
@@ -773,8 +796,6 @@ function showResults(contract) {
       contract.highlightBoxes,
     ).then(handle => {
       contract._pdfViewerHandle = handle;
-
-      // Wire up PDF highlight click → sidebar + suggestion
       window.onPdfHighlightClick = (findingId) => {
         activateFindingById(findingId, contract,
           document.getElementById('issues-list'),
@@ -785,34 +806,63 @@ function showResults(contract) {
       };
     });
 
-    // Build issues list only (no HTML text document to render)
-    renderIssuesList(
-      contract,
-      document.getElementById('issues-list'),
-      document.getElementById('chip-ok'),
-      document.getElementById('chip-warn'),
-      document.getElementById('chip-bad'),
-      document.getElementById('suggestion-text'),
-      document.getElementById('copy-btn'),
-      null, // no text container
-    );
-
+    if (hasIssues) {
+      renderIssuesList(
+        contract,
+        document.getElementById('issues-list'),
+        document.getElementById('chip-ok'),
+        document.getElementById('chip-warn'),
+        document.getElementById('chip-bad'),
+        document.getElementById('suggestion-text'),
+        document.getElementById('copy-btn'),
+        null,
+      );
+    }
   } else {
-    // Fallback text mode: for non-PDF uploads (txt, docx) or PDFs where
-    // coordinate extraction failed — same old reconstructed-HTML approach
     document.getElementById('pdf-viewer').style.display = 'none';
     const textEl = document.getElementById('contract-page-content');
     textEl.style.display = '';
     renderContractPage(
       contract,
       textEl,
-      document.getElementById('issues-list'),
+      hasIssues ? document.getElementById('issues-list') : document.createElement('div'),
       document.getElementById('chip-ok'),
       document.getElementById('chip-warn'),
       document.getElementById('chip-bad'),
       document.getElementById('suggestion-text'),
       document.getElementById('copy-btn'),
     );
+  }
+
+  // Render Right Panel (Issues list or inline safe notice)
+  if (!hasIssues) {
+    const issuesListEl = document.getElementById('issues-list');
+    issuesListEl.innerHTML = `
+      <div class="safe-inline-view" style="text-align: center; padding: 40px 20px; color: var(--text2);">
+        <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
+        <h3 style="color: var(--green); margin-bottom: 8px;">Contract looks good</h3>
+        <p style="font-size: 13px; line-height: 1.5; color: var(--text2);">No compliance issues found. All clauses are consistent with the selected rules and laws.</p>
+      </div>
+    `;
+    document.getElementById('suggestion-box').style.display = 'none';
+    
+    // Clear chips or set to zero for warn/bad
+    const allC = contract.sections.flatMap(s => s.clauses);
+    document.getElementById('chip-ok').textContent = `✓ ${allC.length}`;
+    document.getElementById('chip-warn').textContent = `⚠ 0`;
+    document.getElementById('chip-bad').textContent = `✕ 0`;
+    
+    // Reset severity chip headers to zero
+    document.getElementById('s-chip-ok').textContent   = `✓ ${allC.length} safe`;
+    document.getElementById('s-chip-warn').textContent = `⚠ 0 warn`;
+    document.getElementById('s-chip-bad').textContent  = `✕ 0 critical`;
+  } else {
+    document.getElementById('suggestion-box').style.display = 'block';
+    
+    const allC = contract.sections.flatMap(s => s.clauses);
+    document.getElementById('s-chip-ok').textContent   = `✓ ${allC.filter(c=>c.status==='ok').length} safe`;
+    document.getElementById('s-chip-warn').textContent = `⚠ ${allC.filter(c=>c.status==='warn').length} warn`;
+    document.getElementById('s-chip-bad').textContent  = `✕ ${allC.filter(c=>c.status==='bad').length} critical`;
   }
 
   // Show LLM review in suggestion box if available
@@ -824,11 +874,21 @@ function showResults(contract) {
   }
 }
 
+function onBatchContractSelect(index) {
+  const contract = _currentBatchContracts[parseInt(index, 10)];
+  if (contract) {
+    _activeContract = contract;
+    _chatHistory = [];
+    showResults(contract);
+  }
+}
+
 function resetScanner() {
   _activeContract = null;
   _selectedFile   = null;
   _selectedFiles = [];
   _pendingBatchContracts = [];
+  _currentBatchContracts = [];
   document.getElementById('results-view').classList.remove('show');
   document.getElementById('safe-result').classList.remove('show');
   document.getElementById('upload-view').style.display = 'block';
@@ -837,6 +897,8 @@ function resetScanner() {
   document.getElementById('progress-fill').style.width = '0%';
   document.getElementById('progress-label').textContent = '';
   document.getElementById('file-input').value = '';
+  document.getElementById('batch-contract-select').style.display = 'none';
+  document.getElementById('results-filename').style.display = 'block';
 }
 
 // ═══════════════════════════════════════════
@@ -847,9 +909,9 @@ const HISTORY_STORAGE_KEY = 'contractsense_scan_history_v1';
 function loadLocalScanHistory() {
   try {
     const raw = localStorage.getItem(HISTORY_STORAGE_KEY);
-    if (raw) {
+    if (raw !== null) {
       const saved = JSON.parse(raw);
-      if (Array.isArray(saved) && saved.length > 0) return saved;
+      if (Array.isArray(saved)) return saved;
     }
   } catch (e) {
     console.error('Failed to load scan history from localStorage:', e);
@@ -869,25 +931,32 @@ let SCAN_HISTORY = loadLocalScanHistory();
 let _activeHistoryFilter = 'all';
 let _activeHistorySearch = '';
 
-async function loadScanHistory(isSilent = false, searchQuery = '') {
-  _activeHistorySearch = searchQuery;
+async function loadScanHistory(isSilent = false, searchQuery = null) {
+  if (searchQuery !== null) {
+    _activeHistorySearch = searchQuery;
+  }
   const btn = document.getElementById('btn-refresh-history');
   if (btn && !isSilent) btn.textContent = '🔄 Syncing...';
   
   try {
     let url = `${API_BASE}/api/history`;
-    if (searchQuery) {
-      url += `?search=${encodeURIComponent(searchQuery)}`;
+    if (_activeHistorySearch) {
+      url += `?search=${encodeURIComponent(_activeHistorySearch)}`;
     }
     const res = await fetch(url);
     if (res.ok) {
       const dbHistory = await res.json();
       if (dbHistory && dbHistory.length > 0) {
         SCAN_HISTORY = dbHistory;
-      } else if (searchQuery) {
+      } else if (_activeHistorySearch) {
         SCAN_HISTORY = [];
       } else {
-        SCAN_HISTORY = loadLocalScanHistory();
+        const local = loadLocalScanHistory();
+        if (local.length > 0) {
+          SCAN_HISTORY = local;
+        } else {
+          SCAN_HISTORY = [];
+        }
       }
     } else {
       SCAN_HISTORY = loadLocalScanHistory();
@@ -1142,7 +1211,7 @@ async function clearScanHistory() {
   try {
     await fetch(`${API_BASE}/api/history`, { method: 'DELETE' });
     SCAN_HISTORY = [];
-    localStorage.removeItem(HISTORY_STORAGE_KEY);
+    localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify([]));
     buildHistoryList();
     updateAutomatedScansCount();
   } catch (err) {

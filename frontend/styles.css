@@ -988,3 +988,23 @@ nav{display:flex;align-items:center;justify-content:space-between;padding:18px 4
 .export-choice{background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
 .export-choice.active{background:rgba(79,142,247,0.16);border-color:var(--accent);color:var(--accent)}
 .export-choice:hover{border-color:var(--border2);color:var(--text)}
+
+/* --- BATCH SELECT --- */
+.batch-select {
+  margin-right: 15px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border2);
+  background: var(--surface2);
+  color: var(--text);
+  max-width: 250px;
+  cursor: pointer;
+  outline: none;
+  transition: all 0.2s ease;
+}
+.batch-select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79, 142, 247, 0.15);
+}
