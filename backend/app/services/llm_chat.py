@@ -145,6 +145,7 @@ Reference company policy database (most relevant excerpts for this question):
         reply = response.choices[0].message.content
         return reply.strip() if reply else f"{provider_name} returned an empty response."
     except Exception as exc:
+        print(f"[llm_chat] Cloud LLM call failed, falling back to offline mode: {exc!r}")
         return offline_fallback_chat(
             message=user_message,
             contract_text=contract_text,

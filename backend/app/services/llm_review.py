@@ -90,6 +90,7 @@ async def review_with_llm(
     except Exception as exc:
         # If the AI call fails (bad key, rate limit, network, etc.),
         # don't crash the whole scan — fall back to rule-based findings only.
+        print(f"[llm_review] Cloud LLM call failed, falling back to offline mode: {exc!r}")
         return _offline_fallback_review(findings, exc)
 
 
