@@ -77,6 +77,20 @@ def init_db():
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS company_policies (
+                id SERIAL PRIMARY KEY,
+                source_url TEXT NOT NULL,
+                download_url TEXT,
+                version INTEGER NOT NULL,
+                content_text TEXT NOT NULL,
+                checksum TEXT,
+                etag TEXT,
+                last_modified TEXT,
+                is_active INTEGER DEFAULT 1,
+                synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
     else:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS contracts (
@@ -108,6 +122,20 @@ def init_db():
                 email_password TEXT NOT NULL,
                 is_connected INTEGER DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS company_policies (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source_url TEXT NOT NULL,
+                download_url TEXT,
+                version INTEGER NOT NULL,
+                content_text TEXT NOT NULL,
+                checksum TEXT,
+                etag TEXT,
+                last_modified TEXT,
+                is_active INTEGER DEFAULT 1,
+                synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
         """)
         
@@ -376,4 +404,72 @@ def disconnect_email() -> None:
     cursor.execute("UPDATE email_config SET is_connected = 0")
     conn.commit()
     conn.close()
+
+
+def save_company_policy_snapshot(record: dict) -> int:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    p = get_placeholder()
+
+    cursor.execute("UPDATE company_policies SET is_active = 0")
+
+    params = (
+        record.get("source_url", ""),
+        record.get("download_url", ""),
+        int(record.get("version") or 1),
+        record.get("content_text", ""),
+        record.get("checksum", ""),
+        record.get("etag", ""),
+        record.get("last_modified", ""),
+    )
+
+    if is_postgres():
+        query = f"""
+            INSERT INTO company_policies (
+                source_url, download_url, version, content_text, checksum, etag, last_modified, is_active
+            ) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, 1)
+            RETURNING id
+        """
+        cursor.execute(query, params)
+        inserted_id = cursor.fetchone()["id"]
+    else:
+        query = f"""
+            INSERT INTO company_policies (
+                source_url, download_url, version, content_text, checksum, etag, last_modified, is_active
+            ) VALUES ({p}, {p}, {p}, {p}, {p}, {p}, {p}, 1)
+        """
+        cursor.execute(query, params)
+        inserted_id = cursor.lastrowid
+
+    conn.commit()
+    conn.close()
+    return inserted_id
+
+
+def get_active_company_policy() -> dict | None:
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, source_url, download_url, version, content_text, checksum, etag,
+               last_modified, synced_at
+        FROM company_policies
+        WHERE is_active = 1
+        ORDER BY id DESC
+        LIMIT 1
+    """)
+    row = cursor.fetchone()
+    conn.close()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "source_url": row["source_url"],
+        "download_url": row["download_url"],
+        "version": row["version"],
+        "content_text": row["content_text"],
+        "checksum": row["checksum"],
+        "etag": row["etag"],
+        "last_modified": row["last_modified"],
+        "synced_at": str(row["synced_at"]),
+    }
 

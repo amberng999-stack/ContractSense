@@ -16,7 +16,7 @@ from app.services.risk_rules import SELECTABLE_LAW_IDS, analyze_text, calculate_
 from app.services.text_extraction import read_and_validate_upload, extract_text_from_bytes
 from app.services.pdf_highlight import extract_pdf_with_coords, match_excerpt_to_boxes
 
-from app.db import init_db, save_contract, get_all_contracts, get_contract_by_id, delete_contract, clear_all_contracts, get_email_config, save_email_config, disconnect_email
+from app.db import init_db, save_contract, get_all_contracts, get_contract_by_id, delete_contract, clear_all_contracts, get_email_config, save_email_config, disconnect_email, get_active_company_policy
 from app.services.automation import start_automation_watcher, process_incoming_contracts, AUTO_IMPORT_DIR, AUTO_IMPORT_PROCESSED_DIR
 from app.services.malaysia_law_updater import (
     read_malaysia_law_update_status,
@@ -88,6 +88,15 @@ def _load_reference_text(folder: Path) -> str:
             except Exception as e:
                 print(f"Error reading reference file {filepath}: {e}")
     return "\n\n".join(texts)
+
+
+def _load_company_policy_text() -> str:
+    active_policy = get_active_company_policy()
+    if active_policy and active_policy.get("content_text", "").strip():
+        return active_policy["content_text"]
+    return _load_reference_text(POLICIES_DIR)
+
+
 class ChatMessage(BaseModel):
     role: str
     content: str
@@ -168,7 +177,7 @@ async def analyze_contract(
 
     # Load uploaded reference databases according to the user's selected scope.
     laws_text = _load_reference_text(LAWS_DIR) if selected_law_ids else ""
-    policies_text = _load_reference_text(POLICIES_DIR) if include_company_policy else ""
+    policies_text = _load_company_policy_text() if include_company_policy else ""
     findings = analyze_text(contract_text, selected_laws=selected_law_ids, policies_text=policies_text)
     risk_score = calculate_risk_score(findings)
     risk_level = risk_level_from_score(risk_score)
@@ -296,7 +305,7 @@ async def analyze_contract_text(request: ContractTextAnalyzeRequest) -> Contract
 
     selected_law_ids = _normalise_selected_laws(request.selected_laws)
     laws_text = _load_reference_text(LAWS_DIR) if selected_law_ids else ""
-    policies_text = _load_reference_text(POLICIES_DIR) if request.include_company_policy else ""
+    policies_text = _load_company_policy_text() if request.include_company_policy else ""
     findings = analyze_text(contract_text, selected_laws=selected_law_ids, policies_text=policies_text)
     risk_score = calculate_risk_score(findings)
     risk_level = risk_level_from_score(risk_score)
@@ -387,7 +396,18 @@ async def refresh_malaysia_law_reference():
 
 @app.get("/api/reference/policy/source")
 def get_company_policy_source():
-    return read_company_policy_source_status(POLICIES_DIR)
+    status = read_company_policy_source_status(POLICIES_DIR)
+    active_policy = get_active_company_policy()
+    if active_policy:
+        status.update({
+            "policy_db_id": active_policy["id"],
+            "db_version": active_policy["version"],
+            "db_synced_at": active_policy["synced_at"],
+            "stored_in_database": True,
+        })
+    else:
+        status["stored_in_database"] = False
+    return status
 
 @app.post("/api/reference/policy/source")
 async def save_company_policy_source(request: CompanyPolicyLinkRequest):
@@ -457,7 +477,7 @@ def delete_reference_file(
 @app.post("/api/chat")
 async def chat_endpoint(request: ChatRequest):
     laws_text = _load_reference_text(LAWS_DIR)
-    policies_text = _load_reference_text(POLICIES_DIR)
+    policies_text = _load_company_policy_text()
     
     history_list = [{"role": msg.role, "content": msg.content} for msg in request.chat_history]
     
