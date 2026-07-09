@@ -37,10 +37,10 @@ def link_company_policy_source(
     policies_dir.mkdir(parents=True, exist_ok=True)
 
     manifest = {
-        "source_type": "sharepoint_link",
+        "source_type": "microsoft_365_link",
         "source_url": cleaned_url,
         "sync_status": "pending",
-        "message": "SharePoint policy source linked. Waiting for first sync.",
+        "message": "Microsoft 365 policy source linked. Waiting for first sync.",
         "version": 0,
         "last_synced_at": None,
         "etag": None,
@@ -66,7 +66,7 @@ def sync_company_policy_source(
     if not source_url:
         return {
             "sync_status": "not_linked",
-            "message": "No SharePoint company policy source has been linked yet.",
+            "message": "No SharePoint or OneDrive company policy source has been linked yet.",
             "version": 0,
             "active_policy_file": ACTIVE_POLICY_FILENAME,
         }
@@ -101,7 +101,7 @@ def sync_company_policy_source(
         version_file.write_text(active_text, encoding="utf-8")
 
         manifest.update({
-            "source_type": "sharepoint_link",
+            "source_type": "microsoft_365_link",
             "source_url": source_url,
             "download_url": resource.url,
             "sync_status": "up_to_date",
@@ -123,7 +123,8 @@ def sync_company_policy_source(
             "sync_status": "error",
             "message": (
                 "Could not sync the linked SharePoint policy. Make sure the link is a direct "
-                f"download/shared file link that this server can access. Details: {exc}"
+                "SharePoint or OneDrive file sharing link that anyone with the link can view. "
+                f"Details: {exc}"
             ),
             "last_checked_at": _now_iso(),
         })
@@ -136,7 +137,7 @@ def read_company_policy_source_status(policies_dir: Path) -> dict:
     if not manifest_path.exists():
         return {
             "sync_status": "not_linked",
-            "message": "No SharePoint company policy source has been linked yet.",
+            "message": "No SharePoint or OneDrive company policy source has been linked yet.",
             "version": 0,
             "active_policy_file": ACTIVE_POLICY_FILENAME,
         }
@@ -211,9 +212,37 @@ def _candidate_download_urls(source_url: str) -> list[str]:
     query = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
     query["download"] = "1"
     with_download = parsed._replace(query=urllib.parse.urlencode(query)).geturl()
-    candidates = [with_download, source_url]
+    candidates = [with_download, *_onedrive_download_candidates(parsed), source_url]
     seen: set[str] = set()
     return [url for url in candidates if not (url in seen or seen.add(url))]
+
+
+def _onedrive_download_candidates(parsed: urllib.parse.ParseResult) -> list[str]:
+    """
+    OneDrive sharing URLs are often view/edit pages, not file bytes. Public
+    personal OneDrive links expose the actual content through /download with
+    the same resid/authkey query values. Short 1drv.ms links are still tried
+    with ?download=1 and then followed by urllib redirects in the fetcher.
+    """
+    host = parsed.netloc.lower()
+    if "onedrive.live.com" not in host:
+        return []
+
+    query = dict(urllib.parse.parse_qsl(parsed.query, keep_blank_values=True))
+    resid = query.get("resid") or query.get("id")
+    authkey = query.get("authkey")
+    if not resid:
+        return []
+
+    download_query = {"resid": resid}
+    if authkey:
+        download_query["authkey"] = authkey
+
+    encoded = urllib.parse.urlencode(download_query)
+    return [
+        urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/download", "", encoded, "")),
+        urllib.parse.urlunparse((parsed.scheme, parsed.netloc, "/download.aspx", "", encoded, "")),
+    ]
 
 
 def _extension_from_resource(resource: FetchedResource) -> str:
@@ -233,7 +262,7 @@ def _looks_like_login_page(content: bytes, content_type: str) -> bool:
     if "text/html" not in content_type.lower():
         return False
     sample = content[:3000].decode("utf-8", errors="ignore").lower()
-    return any(marker in sample for marker in ("signin", "login.microsoftonline", "microsoft account", "sharepoint"))
+    return any(marker in sample for marker in ("signin", "login.microsoftonline", "microsoft account", "sharepoint", "onedrive"))
 
 
 def _render_policy_text(source_url: str, text: str, version: int, resource: FetchedResource) -> str:
