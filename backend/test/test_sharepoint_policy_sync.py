@@ -1,6 +1,7 @@
 from app.services.sharepoint_policy_sync import (
     ACTIVE_POLICY_FILENAME,
     FetchedResource,
+    _candidate_download_urls,
     link_company_policy_source,
     read_company_policy_source_status,
     sync_company_policy_source,
@@ -52,3 +53,23 @@ def test_sync_company_policy_source_detects_unchanged_file(tmp_path):
 def test_policy_source_status_handles_not_linked(tmp_path):
     status = read_company_policy_source_status(tmp_path)
     assert status["sync_status"] == "not_linked"
+
+
+def test_onedrive_live_link_generates_download_candidates():
+    url = "https://onedrive.live.com/edit.aspx?resid=ABC123%21123&authkey=!secret&cid=ABC123"
+
+    candidates = _candidate_download_urls(url)
+
+    assert candidates[0].startswith("https://onedrive.live.com/edit.aspx?")
+    assert "download=1" in candidates[0]
+    assert "https://onedrive.live.com/download?resid=ABC123%21123&authkey=%21secret" in candidates
+    assert "https://onedrive.live.com/download.aspx?resid=ABC123%21123&authkey=%21secret" in candidates
+
+
+def test_short_onedrive_link_keeps_download_candidate():
+    url = "https://1drv.ms/w/s!abcde12345"
+
+    candidates = _candidate_download_urls(url)
+
+    assert candidates[0] == "https://1drv.ms/w/s!abcde12345?download=1"
+    assert url in candidates
