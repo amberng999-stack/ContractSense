@@ -365,26 +365,30 @@ def analyze_text(text: str, selected_laws: Iterable[str] | None = None) -> list[
             if not clean:
                 continue
 
-            matched_rule, excerpt, confidence = _match_clause(clean, selected_law_ids)
+            matched_rules = _match_clause(clean, selected_law_ids)
 
-            if matched_rule:
-                findings.append(
-                    ClauseFinding(
-                        id=f"{matched_rule.id}-{clause.id}",
-                        category=section_label,
-                        title=matched_rule.title,
-                        severity=matched_rule.severity,
-                        confidence=confidence,
-                        excerpt=f"{clause.id} {clean}",
-                        explanation=matched_rule.explanation,
-                        recommendation=matched_rule.recommendation,
-                        line_number=None,
-                        matched_snippet=excerpt,
-                        law_section=matched_rule.law_section,
-                        law_text=matched_rule.law_text,
-                        rewrite=matched_rule.rewrite,
+            if matched_rules:
+                for match_index, (matched_rule, excerpt, confidence) in enumerate(matched_rules, start=1):
+                    finding_id = f"{matched_rule.id}-{clause.id}"
+                    if len(matched_rules) > 1:
+                        finding_id = f"{finding_id}-{match_index}"
+                    findings.append(
+                        ClauseFinding(
+                            id=finding_id,
+                            category=section_label,
+                            title=matched_rule.title,
+                            severity=matched_rule.severity,
+                            confidence=confidence,
+                            excerpt=f"{clause.id} {clean}",
+                            explanation=matched_rule.explanation,
+                            recommendation=matched_rule.recommendation,
+                            line_number=None,
+                            matched_snippet=excerpt,
+                            law_section=matched_rule.law_section,
+                            law_text=matched_rule.law_text,
+                            rewrite=matched_rule.rewrite,
+                        )
                     )
-                )
             else:
                 # No issue found — still emit a "low" finding so the clause
                 # appears in the reconstructed document as a clean/ok clause.
@@ -428,15 +432,17 @@ def _rule_matches_selected_laws(rule: RiskRule, selected_law_ids: set[str] | Non
     )
 
 
-def _match_clause(clean_line: str, selected_law_ids: set[str] | None = None) -> tuple[RiskRule | None, str, float]:
+def _match_clause(clean_line: str, selected_law_ids: set[str] | None = None) -> list[tuple[RiskRule, str, float]]:
+    matches: list[tuple[RiskRule, str, float]] = []
     for rule in RISK_RULES:
         if not _rule_matches_selected_laws(rule, selected_law_ids):
             continue
         for pattern in rule.patterns:
             match = re.search(pattern, clean_line, re.IGNORECASE)
             if match:
-                return rule, _excerpt_around(clean_line, match.start(), match.end()), 0.82
-    return None, clean_line, 0.0
+                matches.append((rule, _excerpt_around(clean_line, match.start(), match.end()), 0.82))
+                break
+    return matches
 
 
 def calculate_risk_score(findings: list[ClauseFinding]) -> int:

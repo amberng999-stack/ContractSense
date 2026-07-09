@@ -72,6 +72,33 @@ def test_detects_specific_employment_and_pdpa_errors() -> None:
     assert any(fid.startswith("pdpa-rights-waiver") for fid in ids)
 
 
+def test_detects_decimal_clauses_without_section_headers() -> None:
+    text = """
+    This Employment Agreement is made between the parties.
+    1.1 The Employee shall work 60 hours per week as normal working hours.
+    1.2 After termination, the Employee shall not work for a competitor for two years.
+    """
+
+    findings = analyze_text(text)
+
+    ids = {finding.id for finding in findings}
+    assert any(fid.startswith("excessive-working-hours-1.1") for fid in ids)
+    assert any(fid.startswith("post-employment-non-compete-1.2") for fid in ids)
+
+
+def test_detects_multiple_issues_in_same_clause() -> None:
+    text = """
+    1. DATA TERMS
+    1.1 The Company may transfer personal data to affiliates and third parties for analytics, and the Employee waives all rights under the Personal Data Protection Act 2010.
+    """
+
+    findings = analyze_text(text)
+
+    ids = {finding.id for finding in findings}
+    assert any(fid.startswith("data-use-1.1") for fid in ids)
+    assert any(fid.startswith("pdpa-rights-waiver-1.1") for fid in ids)
+
+
 def test_filters_findings_by_selected_laws() -> None:
     text = """
     1. SELECTED LAW TERMS
@@ -129,3 +156,16 @@ def test_strips_section_headers_from_clauses() -> None:
     c42 = next(c for c in non_compete_sec.clauses if c.id == "4.2")
     assert "TERMINATION" not in c42.text
     assert c42.text == "Breach of this clause shall result in a penalty."
+
+
+def test_splits_three_level_clause_numbers() -> None:
+    from app.services.clause_splitter import split_into_sections
+    text = """
+    1. DEFINITIONS
+    1.1.1 The provider may change the pricing at its sole discretion without prior notice.
+    1.1.2 This agreement will automatically renew unless the customer gives written notice.
+    """
+
+    clauses = [clause for section in split_into_sections(text) for clause in section.clauses]
+
+    assert [clause.id for clause in clauses] == ["1.1.1", "1.1.2"]

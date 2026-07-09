@@ -45,9 +45,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function goPage(name) {
   closeHistoryDetail();
-  if (name === 'scanner') {
-    resetScanner();
-  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
@@ -301,7 +298,7 @@ function mapApiResponseToContract(apiResponse, file) {
   const sections = categoryOrder.map(category => ({
     title: category,
     clauses: findingMap[category].map(f => {
-      const idMatch = f.excerpt.match(/^(\d{1,2}\.\d{1,2})\s+/);
+      const idMatch = f.excerpt.match(/^(\d{1,2}(?:\.\d{1,2}){0,2})\s+/);
       fallbackCounter++;
       const realId   = idMatch ? idMatch[1] : `c${fallbackCounter}`;
       const cleanText = idMatch ? f.excerpt.slice(idMatch[0].length) : f.excerpt;
@@ -407,6 +404,8 @@ function isAiErrorText(text) {
 let _selectedFile = null;
 let _selectedFiles = [];
 let _pendingBatchContracts = [];
+let _scanInProgress = false;
+let _scanRunId = 0;
 let _companyPolicyLinked = false;
 let _companyPolicyIncluded = false;
 let _lastPolicySourceStatus = null;
@@ -691,6 +690,7 @@ function contractHasIssues(contract) {
 async function startScan() {
   const filesToScan = _selectedFiles.length ? _selectedFiles : (_selectedFile ? [_selectedFile] : []);
   if (!filesToScan.length) return;
+  if (_scanInProgress) return;
   const scope = getSelectedAnalysisScope();
   if (!scope.selectedLaws.length && !scope.includeCompanyPolicy) {
     alert('Select at least one law or include company policy before scanning.');
@@ -703,6 +703,8 @@ async function startScan() {
   const label = document.getElementById('progress-label');
 
   btn.disabled = true;
+  _scanInProgress = true;
+  const scanRunId = ++_scanRunId;
   bar.classList.add('show');
   fill.style.background = '';
   fill.style.width = '5%';
@@ -721,6 +723,8 @@ async function startScan() {
     label.textContent = filesToScan.length === 1 ? 'Done!' : `Done! Scanned ${filesToScan.length} contracts.`;
     await new Promise(resolve => setTimeout(resolve, 350));
 
+    if (scanRunId !== _scanRunId) return;
+
     SCAN_HISTORY.unshift(...scannedContracts);
     saveLocalScanHistory();
     buildHistoryList();
@@ -736,6 +740,10 @@ async function startScan() {
     label.textContent = `Error: ${err.message}`;
     btn.disabled = false;
     console.error('Scan failed:', err);
+  } finally {
+    if (scanRunId === _scanRunId) {
+      _scanInProgress = false;
+    }
   }
 }
 
@@ -825,6 +833,13 @@ function showResults(contract) {
 }
 
 function resetScanner() {
+  if (_scanInProgress) {
+    if (!confirm('A scan is still running. Discard this scan view and start over?')) {
+      return;
+    }
+    _scanRunId++;
+    _scanInProgress = false;
+  }
   _activeContract = null;
   _selectedFile   = null;
   _selectedFiles = [];
