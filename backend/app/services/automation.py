@@ -105,15 +105,15 @@ async def process_incoming_contracts() -> list[dict]:
                     shutil.move(str(filepath), str(dest_path))
                     continue
                     
-                # Run rule analyzer
-                findings = analyze_text(contract_text)
-                risk_score = calculate_risk_score(findings)
-                risk_level = risk_level_from_score(risk_score)
-                
                 # Load reference text (laws & policies)
                 from app.main import _load_reference_text, LAWS_DIR, POLICIES_DIR
                 laws_text = _load_reference_text(LAWS_DIR)
                 policies_text = _load_reference_text(POLICIES_DIR)
+
+                # Run rule analyzer
+                findings = analyze_text(contract_text, policies_text=policies_text)
+                risk_score = calculate_risk_score(findings)
+                risk_level = risk_level_from_score(risk_score)
                 
                 # Run LLM review (async)
                 settings = get_settings()
@@ -336,15 +336,15 @@ async def process_email_contract_async(email_item: dict) -> None:
             
         print(f"IMAP scanner: automatic screening contract '{filename}' from '{sender}'...")
         
-        # Rule analyzer
-        findings = analyze_text(contract_text)
-        risk_score = calculate_risk_score(findings)
-        risk_level = risk_level_from_score(risk_score)
-        
         # Load reference databases (laws & policies)
         from app.main import _load_reference_text, LAWS_DIR, POLICIES_DIR
         laws_text = _load_reference_text(LAWS_DIR)
         policies_text = _load_reference_text(POLICIES_DIR)
+
+        # Rule analyzer
+        findings = analyze_text(contract_text, policies_text=policies_text)
+        risk_score = calculate_risk_score(findings)
+        risk_level = risk_level_from_score(risk_score)
         
         # Run LLM review (async)
         settings = get_settings()

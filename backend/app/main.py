@@ -169,7 +169,7 @@ async def analyze_contract(
     # Load uploaded reference databases according to the user's selected scope.
     laws_text = _load_reference_text(LAWS_DIR) if selected_law_ids else ""
     policies_text = _load_reference_text(POLICIES_DIR) if include_company_policy else ""
-    findings = analyze_text(contract_text, selected_laws=selected_law_ids)
+    findings = analyze_text(contract_text, selected_laws=selected_law_ids, policies_text=policies_text)
     risk_score = calculate_risk_score(findings)
     risk_level = risk_level_from_score(risk_score)
     llm_review = await review_with_llm(
@@ -297,7 +297,7 @@ async def analyze_contract_text(request: ContractTextAnalyzeRequest) -> Contract
     selected_law_ids = _normalise_selected_laws(request.selected_laws)
     laws_text = _load_reference_text(LAWS_DIR) if selected_law_ids else ""
     policies_text = _load_reference_text(POLICIES_DIR) if request.include_company_policy else ""
-    findings = analyze_text(contract_text, selected_laws=selected_law_ids)
+    findings = analyze_text(contract_text, selected_laws=selected_law_ids, policies_text=policies_text)
     risk_score = calculate_risk_score(findings)
     risk_level = risk_level_from_score(risk_score)
     llm_review = await review_with_llm(

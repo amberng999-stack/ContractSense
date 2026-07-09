@@ -7,6 +7,7 @@ from typing import Literal
 
 from app.models import ClauseFinding
 from app.services.clause_splitter import Section, split_into_sections
+from app.services.retrieval import chunk_text, extract_keywords
 
 RiskLevel = Literal["low", "medium", "high", "critical"]
 
@@ -135,6 +136,38 @@ RISK_RULES: tuple[RiskRule, ...] = (
         rewrite="If the Employee is required to work on a public holiday, the Employee shall be paid in accordance with Section 60D of the Employment Act 1955.",
     ),
     RiskRule(
+        id="unlawful-short-termination-notice",
+        category="Employment",
+        title="Termination notice may be below statutory minimum",
+        severity="high",
+        patterns=(
+            r"terminate.{0,80}(?:24|twenty[-\s]?four)\s+hours?\s+(?:written\s+)?notice",
+            r"(?:one|1)\s+day(?:'s)?\s+(?:written\s+)?notice.{0,60}terminat",
+            r"terminat.{0,80}(?:one|1)\s+day(?:'s)?\s+(?:written\s+)?notice",
+        ),
+        explanation="The clause appears to permit termination on extremely short notice, which may be inconsistent with Malaysian statutory notice requirements for employees.",
+        recommendation="Use the statutory minimum notice period under the Employment Act 1955 or a longer contractual notice period.",
+        law_section="Employment Act 1955 (Section 12)",
+        law_text="Section 12 prescribes minimum notice periods for termination of contracts of service unless a lawful exception applies.",
+        rewrite="Either party may terminate this Agreement by giving not less than the statutory minimum notice required under Section 12 of the Employment Act 1955, or any longer notice period stated in this Agreement.",
+    ),
+    RiskRule(
+        id="summary-dismissal-without-due-inquiry",
+        category="Employment",
+        title="Immediate dismissal without due inquiry",
+        severity="critical",
+        patterns=(
+            r"terminate.{0,80}immediately.{0,80}without\s+notice.{0,80}(?:any reason|deemed sufficient|sole discretion)",
+            r"without\s+notice\s+or\s+compensation.{0,80}(?:any reason|deemed sufficient|sole discretion)",
+            r"(?:employer|company).{0,80}(?:deems?|determines?).{0,40}sufficient.{0,80}terminat",
+        ),
+        explanation="The clause appears to allow immediate dismissal without a stated misconduct process or due inquiry.",
+        recommendation="Limit immediate termination to lawful grounds such as proven misconduct after due inquiry, and preserve statutory termination protections.",
+        law_section="Employment Act 1955 (Section 14)",
+        law_text="Section 14 addresses termination for misconduct after due inquiry and should not be replaced by a blanket employer discretion clause.",
+        rewrite="The Employer may terminate employment without notice only where permitted by applicable law, including for misconduct established after due inquiry in accordance with Section 14 of the Employment Act 1955.",
+    ),
+    RiskRule(
         id="insufficient-annual-leave",
         category="Employment",
         title="Annual leave below statutory minimum",
@@ -149,6 +182,22 @@ RISK_RULES: tuple[RiskRule, ...] = (
         law_section="Employment Act 1955 (Section 60E)",
         law_text="Section 60E provides statutory annual leave entitlements, including minimum days based on length of service.",
         rewrite="Annual leave shall be granted at not less than the statutory minimum required under Section 60E of the Employment Act 1955, including service-based increases where applicable.",
+    ),
+    RiskRule(
+        id="annual-leave-forfeiture",
+        category="Employment",
+        title="Unused annual leave forfeiture",
+        severity="high",
+        patterns=(
+            r"unused\s+(?:annual\s+)?leave.{0,80}(?:forfeit|forfeited)",
+            r"(?:annual\s+)?leave.{0,80}(?:not\s+be\s+carried\s+forward|no\s+carry\s+forward|not\s+.*encashed)",
+            r"leave.{0,80}(?:forfeit|forfeited).{0,80}(?:end of each calendar year|year end)",
+        ),
+        explanation="A blanket forfeiture of unused leave can undermine statutory annual leave entitlement and payment treatment.",
+        recommendation="State how statutory annual leave is taken, carried forward, or paid in accordance with Malaysian employment law.",
+        law_section="Employment Act 1955 (Section 60E)",
+        law_text="Section 60E provides statutory annual leave entitlements and payment treatment for annual leave.",
+        rewrite="Unused annual leave shall be managed in accordance with Section 60E of the Employment Act 1955, including any statutory carry-forward or payment in lieu where applicable.",
     ),
     RiskRule(
         id="insufficient-sick-leave",
@@ -222,6 +271,9 @@ RISK_RULES: tuple[RiskRule, ...] = (
         patterns=(
             r"use .* data .* improve", r"share .* data .* affiliates?", r"transfer .* personal data",
             r"process .* data .* analytics", r"data .* third parties", r"personal information .* affiliates?",
+            r"personal data.{0,120}(?:any\s+third\s+party|third\s+part(?:y|ies)).{0,120}any\s+purpose",
+            r"personal data.{0,160}for\s+any\s+purpose",
+            r"personal data.{0,120}(?:marketing partners|recruitment agencies|government bodies)",
         ),
         explanation="The vendor may use, share, or transfer enterprise/customer data broadly.",
         recommendation="Limit data use to service delivery, require data processing terms, and define retention/deletion duties.",
@@ -345,8 +397,23 @@ LAW_SECTION_MARKERS = {
     "companies": ("companies act",),
 }
 
+POLICY_CONFLICT_TERMS = (
+    "without consent", "without prior consent", "without approval", "sole discretion",
+    "any purpose", "any third party", "no obligation", "not required", "waive",
+    "waives", "unlimited", "forfeited", "no additional compensation",
+)
+POLICY_REQUIREMENT_TERMS = (
+    "must", "shall", "required", "requires", "minimum", "at least", "no less than",
+    "only", "prior consent", "approval", "confidential", "prohibited", "must not",
+    "shall not", "may not", "not disclose", "not share", "not transfer",
+)
 
-def analyze_text(text: str, selected_laws: Iterable[str] | None = None) -> list[ClauseFinding]:
+
+def analyze_text(
+    text: str,
+    selected_laws: Iterable[str] | None = None,
+    policies_text: str = "",
+) -> list[ClauseFinding]:
     """
     Splits the contract into its real numbered sections/clauses, then runs
     every rule against each clause individually. Returns one ClauseFinding
@@ -365,26 +432,50 @@ def analyze_text(text: str, selected_laws: Iterable[str] | None = None) -> list[
             if not clean:
                 continue
 
-            matched_rule, excerpt, confidence = _match_clause(clean, selected_law_ids)
+            matched_rules = _match_clause(clean, selected_law_ids)
+            policy_match = _match_policy_clause(clean, policies_text)
 
-            if matched_rule:
-                findings.append(
-                    ClauseFinding(
-                        id=f"{matched_rule.id}-{clause.id}",
-                        category=section_label,
-                        title=matched_rule.title,
-                        severity=matched_rule.severity,
-                        confidence=confidence,
-                        excerpt=f"{clause.id} {clean}",
-                        explanation=matched_rule.explanation,
-                        recommendation=matched_rule.recommendation,
-                        line_number=None,
-                        matched_snippet=excerpt,
-                        law_section=matched_rule.law_section,
-                        law_text=matched_rule.law_text,
-                        rewrite=matched_rule.rewrite,
+            if matched_rules or policy_match:
+                for match_index, (matched_rule, excerpt, confidence) in enumerate(matched_rules, start=1):
+                    finding_id = f"{matched_rule.id}-{clause.id}"
+                    if len(matched_rules) > 1:
+                        finding_id = f"{finding_id}-{match_index}"
+                    findings.append(
+                        ClauseFinding(
+                            id=finding_id,
+                            category=section_label,
+                            title=matched_rule.title,
+                            severity=matched_rule.severity,
+                            confidence=confidence,
+                            excerpt=f"{clause.id} {clean}",
+                            explanation=matched_rule.explanation,
+                            recommendation=matched_rule.recommendation,
+                            line_number=None,
+                            matched_snippet=excerpt,
+                            law_section=matched_rule.law_section,
+                            law_text=matched_rule.law_text,
+                            rewrite=matched_rule.rewrite,
+                        )
                     )
-                )
+                if policy_match:
+                    policy_excerpt, policy_reason, confidence = policy_match
+                    findings.append(
+                        ClauseFinding(
+                            id=f"company-policy-conflict-{clause.id}",
+                            category=section_label,
+                            title="Possible company policy conflict",
+                            severity="high",
+                            confidence=confidence,
+                            excerpt=f"{clause.id} {clean}",
+                            explanation=policy_reason,
+                            recommendation="Review this clause against the linked company policy and align the contract wording with the policy requirement or obtain documented approval for an exception.",
+                            line_number=None,
+                            matched_snippet=clean,
+                            law_section="Company policy",
+                            law_text=policy_excerpt,
+                            rewrite="Revise this clause so it follows the linked company policy requirement, or document an approved policy exception before signing.",
+                        )
+                    )
             else:
                 # No issue found — still emit a "low" finding so the clause
                 # appears in the reconstructed document as a clean/ok clause.
@@ -408,6 +499,42 @@ def analyze_text(text: str, selected_laws: Iterable[str] | None = None) -> list[
     return findings
 
 
+def _match_policy_clause(clean_line: str, policies_text: str) -> tuple[str, str, float] | None:
+    if not policies_text.strip():
+        return None
+
+    clause_lower = clean_line.lower()
+    if not any(term in clause_lower for term in POLICY_CONFLICT_TERMS):
+        return None
+
+    clause_words = extract_keywords(clean_line)
+    if len(clause_words) < 3:
+        return None
+
+    best: tuple[int, str] | None = None
+    for chunk in chunk_text(policies_text, chunk_chars=700):
+        chunk_lower = chunk.lower()
+        if not any(term in chunk_lower for term in POLICY_REQUIREMENT_TERMS):
+            continue
+        chunk_words = extract_keywords(chunk)
+        overlap = len(clause_words & chunk_words)
+        if overlap < 2:
+            continue
+        if best is None or overlap > best[0]:
+            best = (overlap, chunk)
+
+    if not best:
+        return None
+
+    policy_excerpt = " ".join(best[1].split())
+    reason = (
+        "The clause contains broad permission or waiver language that appears inconsistent "
+        "with a related mandatory/prohibitive requirement in the linked company policy."
+    )
+    confidence = min(0.9, 0.68 + (best[0] * 0.04))
+    return (_excerpt_around(policy_excerpt, 0, min(len(policy_excerpt), 220), radius=220), reason, confidence)
+
+
 def _normalise_selected_laws(selected_laws: Iterable[str] | None) -> set[str] | None:
     if selected_laws is None:
         return None
@@ -428,15 +555,17 @@ def _rule_matches_selected_laws(rule: RiskRule, selected_law_ids: set[str] | Non
     )
 
 
-def _match_clause(clean_line: str, selected_law_ids: set[str] | None = None) -> tuple[RiskRule | None, str, float]:
+def _match_clause(clean_line: str, selected_law_ids: set[str] | None = None) -> list[tuple[RiskRule, str, float]]:
+    matches: list[tuple[RiskRule, str, float]] = []
     for rule in RISK_RULES:
         if not _rule_matches_selected_laws(rule, selected_law_ids):
             continue
         for pattern in rule.patterns:
             match = re.search(pattern, clean_line, re.IGNORECASE)
             if match:
-                return rule, _excerpt_around(clean_line, match.start(), match.end()), 0.82
-    return None, clean_line, 0.0
+                matches.append((rule, _excerpt_around(clean_line, match.start(), match.end()), 0.82))
+                break
+    return matches
 
 
 def calculate_risk_score(findings: list[ClauseFinding]) -> int:

@@ -19,7 +19,7 @@ from dataclasses import dataclass
 # followed by a space and then text. Also matches top-level section
 # headers like "1. DEFINITION OF..." (no decimal).
 _CLAUSE_PATTERN = re.compile(
-    r"(?<![\d.])(?P<num>\d{1,2}\.\d{1,2})\.?\s+(?=[A-Z'])"
+    r"(?<![\d.])(?P<num>\d{1,2}(?:\.\d{1,2}){1,2})\.?\s+(?=[A-Z'])"
 )
 
 _SECTION_HEADER_PATTERN = re.compile(
@@ -54,6 +54,7 @@ def split_into_sections(text: str) -> list[Section]:
     if no decimal matches exist, and finally falls back to a single
     section with the whole text as one clause if no structure is found.
     """
+    original_text = text
     text = " ".join(text.split())  # normalise whitespace/newlines
 
     header_matches = list(_SECTION_HEADER_PATTERN.finditer(text))
@@ -68,7 +69,8 @@ def split_into_sections(text: str) -> list[Section]:
         if flat_matches and _looks_like_real_flat_structure(text, flat_matches):
             clause_matches = flat_matches
         else:
-            return [Section(title="", clauses=[Clause(id="1", text=text)])]
+            sentence_clauses = _split_unstructured_text_into_sentence_clauses(original_text)
+            return [Section(title="", clauses=sentence_clauses or [Clause(id="1", text=text)])]
 
     # Build a lookup of section number -> title from header matches
     titles: dict[str, str] = {}
@@ -110,38 +112,55 @@ def split_into_sections(text: str) -> list[Section]:
     ]
 
 
+def _split_unstructured_text_into_sentence_clauses(text: str) -> list[Clause]:
+    """
+    Fallback for uploads where PDF/DOC extraction loses clause numbering.
+    Instead of treating the whole contract as one blob, preserve a practical
+    line-by-line/sentence-by-sentence review surface so every sentence can be
+    checked and highlighted independently.
+    """
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    units: list[str] = []
+
+    source_units = lines if len(lines) > 1 else [text]
+    for unit in source_units:
+        unit = " ".join(unit.split())
+        if not unit:
+            continue
+        parts = re.split(r"(?<=[.!?;])\s+(?=[A-Z0-9'\"])", unit)
+        for part in parts:
+            clean = part.strip()
+            if len(clean) >= 8:
+                units.append(clean)
+
+    if len(units) <= 1:
+        return []
+
+    return [Clause(id=str(idx), text=unit) for idx, unit in enumerate(units, start=1)]
+
+
 def _looks_like_real_clause_structure(text: str, clause_matches: list, header_matches: list) -> bool:
     """
     Heuristic sanity check to avoid treating non-contract documents
     (study notes, articles, reports with case citations / statute
     references) as if they were structured contracts.
 
-    Requires:
-    - At least one real section header (e.g. "1. DEFINITION OF...")
-      Most genuine contracts have these; prose documents with stray
-      numbers usually don't.
-    - Section numbers in the detected clauses are mostly sequential and
-      start near 1, rather than scattered/inconsistent (a strong signal
-      of real clause numbering vs. coincidental number matches like
-      "60A" or "14B" from statute citations).
+    Requires a coherent set of clause numbers. Real contracts do not
+    always have all-caps section headers, especially after PDF extraction,
+    so decimal clauses like "1.1 ... 1.2 ..." must still be accepted when
+    the numbering itself is plausible.
     """
-    if not header_matches:
-        return False
-
-    section_nums = []
+    clause_nums: list[tuple[int, ...]] = []
     for m in clause_matches:
         try:
-            section_nums.append(int(m.group("num").split(".")[0]))
+            clause_nums.append(tuple(int(part) for part in m.group("num").split(".")))
         except ValueError:
             continue
 
-    if not section_nums:
+    if not clause_nums:
         return False
 
-    # Real contracts rarely jump straight to large section numbers without
-    # smaller ones appearing first/often. If the spread of distinct section
-    # numbers is very large relative to how many clause matches there are,
-    # it's more likely coincidental matches from an unstructured document.
+    section_nums = [num[0] for num in clause_nums]
     distinct_sections = set(section_nums)
     if len(distinct_sections) > len(clause_matches):
         return False
@@ -149,7 +168,29 @@ def _looks_like_real_clause_structure(text: str, clause_matches: list, header_ma
     if max(distinct_sections) > 25:
         return False
 
-    return True
+    if header_matches:
+        return True
+
+    if min(distinct_sections) > 2:
+        return False
+
+    # Without explicit section headers, require at least two nearby decimal
+    # clauses or a repeated parent section. This avoids treating isolated
+    # legal citations like "60.1" as contract clause structure.
+    if len(clause_nums) < 2:
+        return False
+
+    sequential_pairs = 0
+    repeated_parent = 0
+    for prev, cur in zip(clause_nums, clause_nums[1:]):
+        if cur[0] == prev[0]:
+            repeated_parent += 1
+            if len(prev) == len(cur) and cur[-1] in {prev[-1], prev[-1] + 1}:
+                sequential_pairs += 1
+        elif cur[0] == prev[0] + 1:
+            sequential_pairs += 1
+
+    return sequential_pairs >= 1 or repeated_parent >= 1
 
 
 def _looks_like_real_flat_structure(text: str, flat_matches: list) -> bool:

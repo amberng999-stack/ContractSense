@@ -45,9 +45,6 @@ window.addEventListener('DOMContentLoaded', () => {
 
 function goPage(name) {
   closeHistoryDetail();
-  if (name === 'scanner') {
-    resetScanner();
-  }
   document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('page-' + name).classList.add('active');
@@ -56,6 +53,10 @@ function goPage(name) {
   const idx = pages.indexOf(name);
   if (idx !== -1) {
     document.querySelectorAll('.nav-btn')[idx].classList.add('active');
+  }
+
+  if (name === 'scanner') {
+    restoreScannerView();
   }
 }
 
@@ -300,7 +301,7 @@ function mapApiResponseToContract(apiResponse, file) {
   const sections = categoryOrder.map(category => ({
     title: category,
     clauses: findingMap[category].map(f => {
-      const idMatch = f.excerpt.match(/^(\d{1,2}\.\d{1,2})\s+/);
+      const idMatch = f.excerpt.match(/^(\d{1,2}(?:\.\d{1,2}){0,2})\s+/);
       fallbackCounter++;
       const realId   = idMatch ? idMatch[1] : `c${fallbackCounter}`;
       const cleanText = idMatch ? f.excerpt.slice(idMatch[0].length) : f.excerpt;
@@ -406,10 +407,50 @@ function isAiErrorText(text) {
 let _selectedFile = null;
 let _selectedFiles = [];
 let _pendingBatchContracts = [];
+let _scanInProgress = false;
+let _scanRunId = 0;
 let _currentBatchContracts = [];
+let _scannerViewState = {
+  mode: 'idle',
+  progressText: '',
+  progressPercent: 0,
+  progressError: false,
+};
 let _companyPolicyLinked = false;
 let _companyPolicyIncluded = false;
 let _lastPolicySourceStatus = null;
+
+function restoreScannerView() {
+  const uploadView = document.getElementById('upload-view');
+  const resultsView = document.getElementById('results-view');
+  const safeResult = document.getElementById('safe-result');
+  const progressBar = document.getElementById('progress-bar');
+  const progressFill = document.getElementById('progress-fill');
+  const progressLabel = document.getElementById('progress-label');
+  const scanBtn = document.getElementById('scan-btn');
+  const filePreview = document.getElementById('file-preview');
+  if (!uploadView || !resultsView || !safeResult || !progressBar || !progressFill || !progressLabel || !scanBtn || !filePreview) return;
+
+  const mode = _scannerViewState.mode;
+  const hasFiles = _selectedFiles.length > 0 || Boolean(_selectedFile);
+
+  uploadView.style.display = (mode === 'results' || mode === 'safe') ? 'none' : 'block';
+  resultsView.classList.toggle('show', mode === 'results');
+  safeResult.classList.toggle('show', mode === 'safe');
+  filePreview.classList.toggle('show', hasFiles);
+  scanBtn.disabled = _scanInProgress || !hasFiles;
+
+  const showProgress = mode === 'scanning' || mode === 'error';
+  progressBar.classList.toggle('show', showProgress);
+  progressFill.style.width = `${Math.max(0, Math.min(100, _scannerViewState.progressPercent || 0))}%`;
+  progressFill.style.background = _scannerViewState.progressError ? '#E84040' : '';
+  progressLabel.textContent = _scannerViewState.progressText || '';
+}
+
+function setScannerViewState(patch) {
+  _scannerViewState = { ..._scannerViewState, ...patch };
+  restoreScannerView();
+}
 
 function handleFile(input) {
   if (!input.files || !input.files.length) return;
@@ -422,8 +463,7 @@ function setSelectedFiles(files) {
   const totalSizeKb = files.reduce((sum, file) => sum + file.size, 0) / 1024;
   document.getElementById('file-name').textContent = files.length === 1 ? files[0].name : `${files.length} contracts selected`;
   document.getElementById('file-size').textContent = `${totalSizeKb.toFixed(1)} KB total`;
-  document.getElementById('file-preview').classList.add('show');
-  document.getElementById('scan-btn').disabled = false;
+  setScannerViewState({ mode: files.length ? 'selected' : 'idle', progressText: '', progressPercent: 0, progressError: false });
 }
 
 function handleDrop(e) {
@@ -438,9 +478,8 @@ function removeFile() {
   _selectedFile = null;
   _selectedFiles = [];
   _pendingBatchContracts = [];
-  document.getElementById('file-preview').classList.remove('show');
-  document.getElementById('scan-btn').disabled = true;
   document.getElementById('file-input').value = '';
+  setScannerViewState({ mode: 'idle', progressText: '', progressPercent: 0, progressError: false });
 }
 
 function togglePill(el) { toggleLawPill(el); }
@@ -691,6 +730,7 @@ function contractHasIssues(contract) {
 async function startScan() {
   const filesToScan = _selectedFiles.length ? _selectedFiles : (_selectedFile ? [_selectedFile] : []);
   if (!filesToScan.length) return;
+  if (_scanInProgress) return;
   const scope = getSelectedAnalysisScope();
   if (!scope.selectedLaws.length && !scope.includeCompanyPolicy) {
     alert('Select at least one law or include company policy before scanning.');
@@ -698,28 +738,39 @@ async function startScan() {
   }
 
   const btn = document.getElementById('scan-btn');
-  const bar = document.getElementById('progress-bar');
-  const fill = document.getElementById('progress-fill');
-  const label = document.getElementById('progress-label');
 
   btn.disabled = true;
-  bar.classList.add('show');
-  fill.style.background = '';
-  fill.style.width = '5%';
-  label.textContent = `Preparing ${filesToScan.length} contract${filesToScan.length > 1 ? 's' : ''}...`;
+  _scanInProgress = true;
+  const scanRunId = ++_scanRunId;
+  setScannerViewState({
+    mode: 'scanning',
+    progressPercent: 5,
+    progressText: `Preparing ${filesToScan.length} contract${filesToScan.length > 1 ? 's' : ''}...`,
+    progressError: false,
+  });
 
   try {
     const scannedContracts = [];
     for (let i = 0; i < filesToScan.length; i++) {
       const file = filesToScan[i];
-      label.textContent = `Scanning ${i + 1}/${filesToScan.length}: ${file.name}`;
-      fill.style.width = `${Math.max(8, Math.round((i / filesToScan.length) * 90))}%`;
+      setScannerViewState({
+        mode: 'scanning',
+        progressPercent: Math.max(8, Math.round((i / filesToScan.length) * 90)),
+        progressText: `Scanning ${i + 1}/${filesToScan.length}: ${file.name}`,
+        progressError: false,
+      });
       scannedContracts.push(await analyzeSingleFile(file));
     }
 
-    fill.style.width = '100%';
-    label.textContent = filesToScan.length === 1 ? 'Done!' : `Done! Scanned ${filesToScan.length} contracts.`;
+    setScannerViewState({
+      mode: 'scanning',
+      progressPercent: 100,
+      progressText: filesToScan.length === 1 ? 'Done!' : `Done! Scanned ${filesToScan.length} contracts.`,
+      progressError: false,
+    });
     await new Promise(resolve => setTimeout(resolve, 350));
+
+    if (scanRunId !== _scanRunId) return;
 
     // Filter out duplicates from SCAN_HISTORY
     const newFilenames = scannedContracts.map(c => c.filename);
@@ -736,21 +787,31 @@ async function startScan() {
     _chatHistory = [];
     showResults(_activeContract);
   } catch (err) {
-    fill.style.width = '100%';
-    fill.style.background = '#E84040';
-    label.textContent = `Error: ${err.message}`;
-    btn.disabled = false;
+    setScannerViewState({
+      mode: 'error',
+      progressPercent: 100,
+      progressText: `Error: ${err.message}`,
+      progressError: true,
+    });
     console.error('Scan failed:', err);
+  } finally {
+    if (scanRunId === _scanRunId) {
+      _scanInProgress = false;
+      restoreScannerView();
+    }
   }
 }
 
 function showResults(contract) {
   toggleSeverityFilter(null, 'scanner');
-  document.getElementById('upload-view').style.display = 'none';
-  document.getElementById('progress-bar').classList.remove('show');
-  document.getElementById('progress-fill').style.background = '';
 
   const hasIssues = contract.sections.some(s => s.clauses.some(c => c.status !== 'ok'));
+  setScannerViewState({
+    mode: hasIssues || (_currentBatchContracts && _currentBatchContracts.length > 1) ? 'results' : 'safe',
+    progressPercent: 100,
+    progressText: '',
+    progressError: false,
+  });
 
   // Handle batch selection display
   const select = document.getElementById('batch-contract-select');
@@ -774,14 +835,8 @@ function showResults(contract) {
 
   // If single contract and it is safe, show the dedicated full-page safe view
   if (!hasIssues && (!_currentBatchContracts || _currentBatchContracts.length <= 1)) {
-    document.getElementById('safe-result').classList.add('show');
-    document.getElementById('results-view').classList.remove('show');
     return;
   }
-
-  // Make sure results view is shown and safe view is hidden
-  document.getElementById('safe-result').classList.remove('show');
-  document.getElementById('results-view').classList.add('show');
 
   // Render Left Panel (PDF or Fallback text)
   if (contract.pdfBase64) {
@@ -884,21 +939,22 @@ function onBatchContractSelect(index) {
 }
 
 function resetScanner() {
+  if (_scanInProgress) {
+    if (!confirm('A scan is still running. Discard this scan view and start over?')) {
+      return;
+    }
+    _scanRunId++;
+    _scanInProgress = false;
+  }
   _activeContract = null;
   _selectedFile   = null;
   _selectedFiles = [];
   _pendingBatchContracts = [];
   _currentBatchContracts = [];
-  document.getElementById('results-view').classList.remove('show');
-  document.getElementById('safe-result').classList.remove('show');
-  document.getElementById('upload-view').style.display = 'block';
-  document.getElementById('file-preview').classList.remove('show');
-  document.getElementById('scan-btn').disabled = true;
-  document.getElementById('progress-fill').style.width = '0%';
-  document.getElementById('progress-label').textContent = '';
   document.getElementById('file-input').value = '';
   document.getElementById('batch-contract-select').style.display = 'none';
   document.getElementById('results-filename').style.display = 'block';
+  setScannerViewState({ mode: 'idle', progressText: '', progressPercent: 0, progressError: false });
 }
 
 // ═══════════════════════════════════════════
