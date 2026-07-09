@@ -472,8 +472,25 @@ let _scannerViewState = {
   progressError: false,
 };
 let _companyPolicyLinked = false;
-let _companyPolicyIncluded = false;
+const COMPANY_POLICY_INCLUDED_KEY = 'contractsense_company_policy_included_v1';
+let _companyPolicyIncluded = loadCompanyPolicyIncludedPreference();
 let _lastPolicySourceStatus = null;
+
+function loadCompanyPolicyIncludedPreference() {
+  try {
+    return localStorage.getItem(COMPANY_POLICY_INCLUDED_KEY) !== 'false';
+  } catch (err) {
+    return true;
+  }
+}
+
+function saveCompanyPolicyIncludedPreference() {
+  try {
+    localStorage.setItem(COMPANY_POLICY_INCLUDED_KEY, _companyPolicyIncluded ? 'true' : 'false');
+  } catch (err) {
+    // Ignore storage failures; the in-memory choice still applies for this session.
+  }
+}
 
 function restoreScannerView() {
   const uploadView = document.getElementById('upload-view');
@@ -566,6 +583,7 @@ function toggleCompanyPolicyPill() {
     return;
   }
   _companyPolicyIncluded = !_companyPolicyIncluded;
+  saveCompanyPolicyIncludedPreference();
   renderCompanyPolicySelection();
 }
 
@@ -592,12 +610,6 @@ function updatePolicySourceUi(status) {
 
   _lastPolicySourceStatus = status || {};
   _companyPolicyLinked = status.sync_status === 'up_to_date';
-  if (_companyPolicyLinked && !_companyPolicyIncluded) {
-    _companyPolicyIncluded = true;
-  }
-  if (!_companyPolicyLinked) {
-    _companyPolicyIncluded = false;
-  }
   renderCompanyPolicySelection();
 }
 
