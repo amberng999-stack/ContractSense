@@ -1,0 +1,1499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ContractSense — Pitch Deck Presentation</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Luckiest+Guy&family=Outfit:wght@300;400;500;600;700;800&display=swap">
+  <style>
+    :root {
+      --primary: #4F8EF7;
+      --secondary: #7B5FFF;
+      --gradient: linear-gradient(135deg, #4F8EF7 0%, #7B5FFF 100%);
+      --dark-bg: #0D0F14;
+      --dark-surface: #13161E;
+      --dark-surface2: #1A1E2A;
+      --dark-border: rgba(255, 255, 255, 0.08);
+      --dark-text: #F0F2F8;
+      --dark-text-muted: #8B90A0;
+      
+      --light-bg: #F4F6FB;
+      --light-surface: #FFFFFF;
+      --light-surface2: #E8ECF5;
+      --light-border: rgba(0, 0, 0, 0.06);
+      --light-text: #0D0F14;
+      --light-text-muted: #555A6E;
+
+      --purple-card-bg: #2C1B4D;
+      --purple-card-text: #F3EEFF;
+      --purple-card-border: rgba(123, 95, 255, 0.3);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', 'Inter', sans-serif;
+      background-color: #000;
+      color: #fff;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    /* Deck Container */
+    #deck-container {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      max-width: 1920px;
+      max-height: 1080px;
+      aspect-ratio: 16 / 9;
+      background: var(--dark-bg);
+      box-shadow: 0 20px 80px rgba(0,0,0,0.8);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Slides Container */
+    .slides-wrapper {
+      position: relative;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Single Slide */
+    .slide {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0.5s;
+      padding: 6% 8%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .slide.active {
+      opacity: 1;
+      visibility: visible;
+      z-index: 10;
+    }
+
+    /* Slide Themes */
+    .theme-dark {
+      background: radial-gradient(circle at center, #160D33 0%, #0A0618 100%);
+      color: var(--dark-text);
+    }
+
+    .theme-light {
+      background: linear-gradient(135deg, #F4F6FB 0%, #E2E6F2 100%);
+      color: var(--light-text);
+    }
+
+    /* Slide Header */
+    .slide-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      margin-bottom: 2%;
+    }
+
+    .slide-logo {
+      font-family: 'Luckiest Guy', cursive;
+      font-size: 28px;
+      letter-spacing: 1px;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .slide-meta {
+      display: flex;
+      gap: 12px;
+    }
+
+    .meta-pill {
+      font-size: 14px;
+      font-weight: 500;
+      padding: 6px 16px;
+      border-radius: 20px;
+    }
+
+    .theme-dark .meta-pill {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      color: var(--dark-text-muted);
+    }
+
+    .theme-light .meta-pill {
+      background: rgba(0, 0, 0, 0.04);
+      border: 1px solid rgba(0, 0, 0, 0.06);
+      color: var(--light-text-muted);
+    }
+
+    .meta-pill.highlight {
+      background: var(--gradient);
+      color: #fff;
+      border: none;
+    }
+
+    /* Slide Footer */
+    .slide-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      width: 100%;
+      font-size: 13px;
+      margin-top: 2%;
+    }
+
+    .theme-dark .slide-footer {
+      color: var(--dark-text-muted);
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      padding-top: 1.5%;
+    }
+
+    .theme-light .slide-footer {
+      color: var(--light-text-muted);
+      border-top: 1px solid rgba(0, 0, 0, 0.05);
+      padding-top: 1.5%;
+    }
+
+    /* Layout Elements */
+    .slide-body {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      width: 100%;
+      min-height: 0; /* allows child elements to scroll/shrink properly */
+    }
+
+    .two-cols {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 5%;
+      width: 100%;
+      height: 100%;
+      align-items: center;
+    }
+
+    .three-cols {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3%;
+      width: 100%;
+      align-items: stretch;
+    }
+
+    /* Typography */
+    h1 {
+      font-size: clamp(36px, 4vw, 54px);
+      font-weight: 800;
+      line-height: 1.15;
+      margin-bottom: 20px;
+    }
+
+    h2 {
+      font-size: clamp(28px, 3vw, 42px);
+      font-weight: 700;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    p {
+      font-size: clamp(15px, 1.4vw, 19px);
+      line-height: 1.6;
+      font-weight: 300;
+    }
+
+    .theme-dark p {
+      color: var(--dark-text-muted);
+    }
+
+    .theme-light p {
+      color: var(--light-text-muted);
+    }
+
+    /* Cards */
+    .card {
+      padding: 30px;
+      border-radius: 16px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.3s ease, box-shadow 0.3s;
+    }
+
+    .theme-light .card.white-card {
+      background: var(--light-surface);
+      border: 1px solid var(--light-border);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.03);
+    }
+
+    .theme-dark .card.white-card {
+      background: var(--dark-surface);
+      border: 1px solid var(--dark-border);
+    }
+
+    .card.purple-card {
+      background: var(--purple-card-bg);
+      color: var(--purple-card-text);
+      border: 1px solid var(--purple-card-border);
+      box-shadow: 0 10px 40px rgba(123, 95, 255, 0.15);
+    }
+
+    .card h3 {
+      font-size: clamp(18px, 1.8vw, 24px);
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+
+    .card.purple-card h3 {
+      color: #fff;
+    }
+
+    .card ul {
+      margin-top: 15px;
+      margin-left: 20px;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .card li {
+      margin-bottom: 8px;
+    }
+
+    /* Controls Overlay */
+    .controls-overlay {
+      position: absolute;
+      bottom: 24px;
+      right: 40px;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      background: rgba(13, 15, 20, 0.7);
+      backdrop-filter: blur(10px);
+      padding: 8px 16px;
+      border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .control-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 18px;
+      cursor: pointer;
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .slide-indicator {
+      font-size: 14px;
+      font-weight: 500;
+      color: #8B90A0;
+      min-width: 45px;
+      text-align: center;
+    }
+
+    /* Progress Bar */
+    .progress-bar-container {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      z-index: 100;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: var(--gradient);
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    /* Custom Graphics / Visual Elements */
+    .graphic-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      height: 100%;
+    }
+
+    .pulse-glowing-circle {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(123, 95, 255, 0.4) 0%, rgba(79, 142, 247, 0) 70%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      animation: pulse-glow 3s infinite alternate;
+    }
+
+    @keyframes pulse-glow {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      100% { transform: scale(1.1); opacity: 1; }
+    }
+
+    /* Slide 1: Welcome */
+    .slide-welcome {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .slide-welcome .welcome-box {
+      max-width: 900px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      flex: 1;
+    }
+
+    .welcome-title {
+      font-size: clamp(60px, 8vw, 110px);
+      font-weight: 900;
+      line-height: 0.95;
+      letter-spacing: -2px;
+      margin-bottom: 20px;
+      background: linear-gradient(180deg, #FFFFFF 30%, #A5B4FC 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .welcome-subtitle {
+      font-size: clamp(18px, 2.5vw, 32px);
+      font-weight: 400;
+      color: #A5B4FC;
+      letter-spacing: 0.5px;
+      margin-bottom: 40px;
+    }
+
+    .welcome-pills {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    .welcome-pill {
+      background: rgba(123, 95, 255, 0.15);
+      border: 1px solid var(--purple-card-border);
+      color: #E0E7FF;
+      padding: 8px 24px;
+      border-radius: 30px;
+      font-size: 16px;
+      font-weight: 500;
+    }
+
+    /* Slide 2: Problem Grid */
+    .problem-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    /* Slide 3: Solution Grid */
+    .solution-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    /* Slide 6: Product Demo Mockup */
+    .demo-mockup {
+      width: 100%;
+      height: 100%;
+      background: #11131A;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    }
+
+    .mockup-header {
+      height: 38px;
+      background: #191B24;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 6px;
+    }
+
+    .dot-btn {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ff5f56; }
+    .dot-yellow { background: #ffbd2e; }
+    .dot-green { background: #27c93f; }
+
+    .mockup-body {
+      flex: 1;
+      display: flex;
+      font-size: 12px;
+    }
+
+    .mockup-sidebar {
+      width: 150px;
+      background: #14161F;
+      border-right: 1px solid rgba(255,255,255,0.05);
+      padding: 15px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mockup-tab {
+      padding: 6px 10px;
+      border-radius: 6px;
+      color: #8B90A0;
+    }
+    .mockup-tab.active {
+      background: var(--primary);
+      color: #fff;
+    }
+
+    .mockup-content {
+      flex: 1;
+      padding: 20px;
+      display: flex;
+      gap: 15px;
+    }
+
+    .mockup-doc {
+      flex: 1.2;
+      background: #fff;
+      border-radius: 4px;
+      padding: 15px;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-family: serif;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+    }
+
+    .mockup-doc-line {
+      height: 8px;
+      background: #eaeaea;
+      border-radius: 2px;
+      width: 100%;
+    }
+    .mockup-doc-line.hl {
+      background: #ffe3e3;
+      border-bottom: 1.5px solid #ff4d4d;
+    }
+
+    .mockup-findings {
+      flex: 0.8;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mockup-card {
+      background: #1C1E29;
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .mockup-card.danger {
+      border-left: 3px solid #ff4d4d;
+    }
+
+    /* Slide 7: Technical Architecture Mermaid Representation */
+    .arch-diagram {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 15px;
+      width: 100%;
+      height: 80%;
+      align-items: center;
+    }
+
+    .arch-zone {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      text-align: center;
+    }
+
+    .arch-zone h3 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #A5B4FC;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding-bottom: 10px;
+    }
+
+    .arch-box {
+      background: var(--dark-surface2);
+      border: 1px solid var(--dark-border);
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 13px;
+      color: var(--dark-text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+    .arch-box.highlighted {
+      background: rgba(123, 95, 255, 0.1);
+      border-color: var(--secondary);
+    }
+    .arch-box span {
+      font-weight: 600;
+    }
+    .arch-arrow {
+      color: var(--secondary);
+      font-size: 20px;
+      margin: -5px 0;
+    }
+
+    /* Target Market */
+    .market-circle {
+      background: var(--light-surface);
+      border: 1px solid var(--light-border);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.04);
+      border-radius: 50%;
+      aspect-ratio: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      padding: 40px;
+      transition: transform 0.3s;
+    }
+    .market-circle:hover {
+      transform: translateY(-8px);
+    }
+    .market-circle h3 {
+      font-family: 'Luckiest Guy', cursive;
+      font-size: clamp(24px, 2.5vw, 36px);
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+
+    /* Pricing Table */
+    .price-card {
+      background: var(--light-surface);
+      border: 1px solid var(--light-border);
+      border-radius: 16px;
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.03);
+      justify-content: space-between;
+      position: relative;
+    }
+    .price-card.featured {
+      border: 2px solid var(--secondary);
+      transform: scale(1.03);
+      z-index: 2;
+    }
+    .price-card.featured::before {
+      content: 'POPULAR';
+      position: absolute;
+      top: -12px;
+      right: 20px;
+      background: var(--secondary);
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 10px;
+    }
+    .price-card h3 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .price-card .price {
+      font-size: 36px;
+      font-weight: 800;
+      color: var(--light-text);
+      margin-bottom: 20px;
+    }
+    .price-card .price span {
+      font-size: 16px;
+      font-weight: 400;
+      color: var(--light-text-muted);
+    }
+    .price-card ul {
+      list-style: none;
+      font-size: 14px;
+      color: var(--light-text-muted);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .price-card li::before {
+      content: '✓';
+      color: var(--primary);
+      margin-right: 8px;
+      font-weight: bold;
+    }
+
+    /* Roadmap Columns */
+    .roadmap-col {
+      background: var(--light-surface);
+      border: 1px solid var(--light-border);
+      border-radius: 16px;
+      padding: 24px;
+      height: 100%;
+    }
+    .roadmap-col h3 {
+      font-size: 18px;
+      font-weight: 700;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--primary);
+      margin-bottom: 16px;
+    }
+    .roadmap-col ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .roadmap-col li {
+      font-size: 14px;
+      color: var(--light-text-muted);
+      position: relative;
+      padding-left: 18px;
+      line-height: 1.5;
+    }
+    .roadmap-col li::before {
+      content: '•';
+      color: var(--secondary);
+      position: absolute;
+      left: 2px;
+      font-size: 18px;
+      top: -2px;
+    }
+
+    /* Thank You */
+    .thankyou-box {
+      text-align: center;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .thankyou-title {
+      font-family: 'Luckiest Guy', cursive;
+      font-size: clamp(80px, 10vw, 130px);
+      letter-spacing: 2px;
+      background: var(--gradient);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+    }
+
+    /* Keyboard Instructions */
+    .keyboard-tip {
+      position: absolute;
+      top: 24px;
+      left: 40px;
+      z-index: 100;
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      background: rgba(0,0,0,0.3);
+      padding: 4px 12px;
+      border-radius: 20px;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="keyboard-tip">Use Left/Right arrows or Space to navigate</div>
+
+<div id="deck-container">
+  <!-- Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-fill" id="deck-progress"></div>
+  </div>
+
+  <!-- Controls overlay -->
+  <div class="controls-overlay">
+    <button class="control-btn" id="prev-btn" onclick="prevSlide()">◀</button>
+    <div class="slide-indicator" id="slide-num">1 / 12</div>
+    <button class="control-btn" id="next-btn" onclick="nextSlide()">▶</button>
+    <button class="control-btn" id="fullscreen-btn" onclick="toggleFullscreen()">⛶</button>
+  </div>
+
+  <div class="slides-wrapper">
+
+    <!-- ══ SLIDE 1: TITLE ══ -->
+    <div class="slide active theme-dark slide-welcome">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill highlight">Pitch Deck</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+      
+      <div class="welcome-box">
+        <div class="welcome-title">Contract Sense</div>
+        <div class="welcome-subtitle">AI-powered Compliance Checking</div>
+        <div class="welcome-pills">
+          <span class="welcome-pill">Team Name: 404 Not Found</span>
+          <span class="welcome-pill">Goh Xuan Hui & Ng Ying Xi</span>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Empowering Malaysian SMEs with Instant Contract Review</span>
+        <span>Slide 1 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 2: THE PROBLEM ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Presented by: 404 Not Found Team</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cols">
+          <div>
+            <h1>The Problem</h1>
+            <p>Small and medium businesses (SMEs) in Malaysia face serious challenges when reviewing contracts — from hiring offers to rental and sales agreements. Without affordable legal support, most SMEs sign contracts blind, exposing themselves to financial and legal risks.</p>
+            
+            <div style="display: flex; gap: 20px; margin-top: 30px;">
+              <div class="card white-card" style="flex: 1;">
+                <h3>High Legal Fees</h3>
+                <p>Hiring a lawyer to review a simple contract costs RM500–RM2,500. Most SMEs cannot afford this and end up signing unchecked contracts, risking serious legal exposure.</p>
+              </div>
+              <div class="card purple-card" style="flex: 1;">
+                <h3>Complex Laws & Slow Turnaround</h3>
+                <p>Laws like the Employment Act 1955 and PDPA 2010 are frequently updated. External lawyers take 3–7 days to review contracts, slowing down deals.</p>
+              </div>
+            </div>
+          </div>
+          <div class="graphic-container">
+            <!-- Custom SVG Representation of the Stressed Office Worker -->
+            <svg viewBox="0 0 200 200" width="100%" height="80%" style="max-height: 300px;">
+              <!-- Background Desk -->
+              <rect x="20" y="140" width="160" height="40" rx="4" fill="#BAC3D6" />
+              <!-- Large pile of papers -->
+              <rect x="35" y="60" width="40" height="80" rx="2" fill="#E8EDF5" stroke="#90A4AE" stroke-width="1.5" />
+              <rect x="33" y="66" width="40" height="80" rx="2" fill="#FFFFFF" stroke="#90A4AE" stroke-width="1.5" />
+              <rect x="36" y="72" width="40" height="80" rx="2" fill="#F4F6FA" stroke="#90A4AE" stroke-width="1.5" />
+              <line x1="43" y1="80" x2="68" y2="80" stroke="#CFD8DC" stroke-width="2" />
+              <line x1="43" y1="90" x2="63" y2="90" stroke="#CFD8DC" stroke-width="2" />
+              <line x1="43" y1="100" x2="68" y2="100" stroke="#CFD8DC" stroke-width="2" />
+              <!-- Character (Stressed Head) -->
+              <circle cx="120" cy="90" r="22" fill="#FFCC80" />
+              <!-- Hair -->
+              <path d="M98,90 Q120,60 142,90 Q120,70 98,90" fill="#5D4037" />
+              <!-- Stressed Hands holding head -->
+              <path d="M94,110 C94,100 104,95 106,102" stroke="#FFCC80" stroke-width="4" stroke-linecap="round" fill="none" />
+              <path d="M146,110 C146,100 136,95 134,102" stroke="#FFCC80" stroke-width="4" stroke-linecap="round" fill="none" />
+              <!-- Stressed eyebrows / eyes -->
+              <path d="M112,85 Q115,82 118,85" stroke="#37474F" stroke-width="1.5" fill="none" />
+              <path d="M122,85 Q125,82 128,85" stroke="#37474F" stroke-width="1.5" fill="none" />
+              <circle cx="115" cy="91" r="1.5" fill="#37474F" />
+              <circle cx="125" cy="91" r="1.5" fill="#37474F" />
+              <!-- Frown mouth -->
+              <path d="M117,102 Q120,98 123,102" stroke="#37474F" stroke-width="2" fill="none" />
+              <!-- Exhaustion marks -->
+              <path d="M120,50 L120,40" stroke="#7B5FFF" stroke-width="2" stroke-linecap="round" />
+              <path d="M100,55 L93,48" stroke="#7B5FFF" stroke-width="2" stroke-linecap="round" />
+              <path d="M140,55 L147,48" stroke="#7B5FFF" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>The Problem</span>
+        <span>Slide 2 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 3: OUR SOLUTION ══ -->
+    <div class="slide theme-dark">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">AI Contract Analysis</span>
+          <span class="meta-pill">Presented by: 404 Not Found Team</span>
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cols">
+          <div>
+            <h1>Our Solution</h1>
+            <p>ContractSense is an AI-powered contract analysis platform built for Malaysian SMEs. Upload any contract and get instant, affordable legal insights — fully aligned with local laws like the Employment Act 1955 and PDPA 2010 — in seconds, not days.</p>
+            
+            <div style="display: flex; gap: 20px; margin-top: 30px;">
+              <div class="card white-card" style="flex: 1;">
+                <h3>Instant AI Analysis</h3>
+                <p>Our AI engine scans contracts in seconds, flagging risky clauses, missing terms, and legal inconsistencies, with auto edit and export options immediately.</p>
+              </div>
+              <div class="card purple-card" style="flex: 1;">
+                <h3>Malaysian Law Ready</h3>
+                <p>ContractSense is trained on Malaysian legal frameworks including the Employment Act 1955 (2022 amendments) and PDPA 2010. SMEs get compliance checks at a fraction of the cost.</p>
+              </div>
+            </div>
+          </div>
+          <div class="graphic-container">
+            <!-- Glowing Hologram Laptop graphic -->
+            <div class="pulse-glowing-circle">
+              <svg viewBox="0 0 100 100" width="80%" height="80%">
+                <path d="M20,70 L80,70 L85,78 L15,78 Z" fill="#7B5FFF" opacity="0.8"/>
+                <rect x="28" y="32" width="44" height="34" rx="3" fill="#13161E" stroke="#4F8EF7" stroke-width="2" />
+                <rect x="34" y="38" width="32" height="22" rx="1" fill="#FFFFFF" opacity="0.9"/>
+                <!-- Scanner beam -->
+                <line x1="32" y1="46" x2="68" y2="46" stroke="#2ECC8F" stroke-width="2" opacity="0.8">
+                  <animate attributeName="y1" values="38;60;38" dur="2s" repeatCount="indefinite" />
+                  <animate attributeName="y2" values="38;60;38" dur="2s" repeatCount="indefinite" />
+                </line>
+                <!-- Mini text lines in doc -->
+                <line x1="38" y1="42" x2="62" y2="42" stroke="#aaa" stroke-width="1.5" />
+                <line x1="38" y1="48" x2="58" y2="48" stroke="#ff6b6b" stroke-width="1.5" />
+                <line x1="38" y1="54" x2="54" y2="54" stroke="#aaa" stroke-width="1.5" />
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Our Solution</span>
+        <span>Slide 3 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 4: OUR SERVICES 1 ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Our Services</span>
+          <span class="meta-pill">Presented by: 404 Not Found Team</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 40px;">Our Services (1 / 2)</h2>
+        <div class="three-cols">
+          <div class="card white-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">📁</div>
+              <h3>Contract Manual Scan</h3>
+            </div>
+            <ul>
+              <li>Upload multiple contracts</li>
+              <li>AI analyzes clauses</li>
+              <li>Risk detection & scoring</li>
+              <li>Actionable recommendations</li>
+            </ul>
+          </div>
+          <div class="card purple-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">🕒</div>
+              <h3>Review History</h3>
+            </div>
+            <ul>
+              <li>Store previous analyses</li>
+              <li>Compare contracts side-by-side</li>
+              <li>Download compliance reports</li>
+              <li>Contract search & filter</li>
+            </ul>
+          </div>
+          <div class="card white-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">📧</div>
+              <h3>Contract Auto Scan</h3>
+            </div>
+            <ul>
+              <li>Automatic scanning from email</li>
+              <li>Instant compliance alerts</li>
+              <li>Intake pre-filtering</li>
+              <li>Keyword & metadata detecting</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Our Services (1/2)</span>
+        <span>Slide 4 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 5: OUR SERVICES 2 ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Our Services</span>
+          <span class="meta-pill">Presented by: 404 Not Found Team</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 40px;">Our Services (2 / 2)</h2>
+        <div class="three-cols">
+          <div class="card white-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">✏️</div>
+              <h3>Contract Auto Edit</h3>
+            </div>
+            <ul>
+              <li>Automatic inline edits</li>
+              <li>AI compliance suggestions</li>
+              <li>Review drafts before saving</li>
+            </ul>
+          </div>
+          <div class="card purple-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">💾</div>
+              <h3>File Manager</h3>
+            </div>
+            <ul>
+              <li>Download as chosen file type</li>
+              <li>Save to local secure DB</li>
+              <li>Export summaries to PDF/Word</li>
+            </ul>
+          </div>
+          <div class="card white-card">
+            <div>
+              <div style="font-size: 36px; margin-bottom: 15px;">🤖</div>
+              <h3>AI Chatbot</h3>
+            </div>
+            <ul>
+              <li>Answering questions on law & policy</li>
+              <li>Locate clauses instantly</li>
+              <li>Interactive contract editor</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Our Services (2/2)</span>
+        <span>Slide 5 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 6: PRODUCT DEMO ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Product Demo</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="two-cols" style="grid-template-columns: 0.8fr 1.2fr;">
+          <div>
+            <h1>Interactive Compliance</h1>
+            <p>Our client interface renders the actual contract side-by-side with localized legal warnings and suggestions.</p>
+            <ul style="margin-top: 20px; margin-left: 20px; line-height: 1.8; color: var(--light-text-muted);">
+              <li><strong>Interactive highlights</strong> trace directly to the PDF coordinates.</li>
+              <li><strong>Check-box controls</strong> scope rules by Employment Act, PDPA, or custom Company Policies.</li>
+              <li><strong>One-click fixes</strong> allow auto-editing and direct downloads.</li>
+            </ul>
+          </div>
+          <div class="demo-mockup">
+            <div class="mockup-header">
+              <div class="dot-btn dot-red"></div>
+              <div class="dot-btn dot-yellow"></div>
+              <div class="dot-btn dot-green"></div>
+              <div style="color: #666; font-size: 10px; margin-left: 10px;">contractsense.app/scanner</div>
+            </div>
+            <div class="mockup-body">
+              <div class="mockup-sidebar">
+                <div class="mockup-tab active">📄 Scanner</div>
+                <div class="mockup-tab">📧 Auto-Scan</div>
+                <div class="mockup-tab">🕒 History</div>
+                <div class="mockup-tab">⚙️ Settings</div>
+              </div>
+              <div class="mockup-content">
+                <div class="mockup-doc">
+                  <div style="font-weight:bold;font-size:10px;text-align:center;margin-bottom:5px;">EMPLOYMENT AGREEMENT</div>
+                  <div class="mockup-doc-line"></div>
+                  <div class="mockup-doc-line"></div>
+                  <div class="mockup-doc-line hl"></div>
+                  <div class="mockup-doc-line"></div>
+                  <div class="mockup-doc-line"></div>
+                </div>
+                <div class="mockup-findings">
+                  <div class="mockup-card danger">
+                    <span style="font-weight:bold;color:#ff4d4d;font-size:10px;">⚠ CRITICAL RISK</span>
+                    <span style="font-size:9px;color:#aaa;">Section 4.1 - Annual Leave</span>
+                    <p style="font-size:9px;color:#ccc;margin-top:3px;">Offer lists 5 days annual leave. Employment Act Section 60E requires a minimum of 8 days.</p>
+                  </div>
+                  <div class="mockup-card" style="border-left: 3px solid #7B5FFF;">
+                    <span style="font-weight:bold;color:#7B5FFF;font-size:10px;">✏ SUGGESTED REWRITE</span>
+                    <p style="font-size:9px;color:#ccc;margin-top:3px;">"Employee shall be entitled to 8 days of paid annual leave..."</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Product Demo</span>
+        <span>Slide 6 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 7: TECHNICAL ARCHITECTURE ══ -->
+    <div class="slide theme-dark">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Technical Architecture</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 30px;">Technical Architecture</h2>
+        <div class="arch-diagram">
+          
+          <!-- Zone 1 -->
+          <div class="arch-zone">
+            <h3>Zone 1: Intake Layer</h3>
+            <div class="arch-box highlighted">
+              <span>PDF Upload UI</span>
+              <p style="font-size: 11px; color:#aaa; margin-top:4px;">Manual Path A</p>
+            </div>
+            <div class="arch-box">
+              <span>IMAP Agent</span>
+              <p style="font-size: 11px; color:#aaa; margin-top:4px;">Email Path B</p>
+            </div>
+          </div>
+
+          <!-- Zone 2 -->
+          <div class="arch-zone">
+            <h3>Zone 2: Extraction</h3>
+            <div class="arch-box">
+              <span>pdfplumber</span>
+              <p style="font-size: 10px; color:#aaa; margin-top:4px;">with pypdf fallback</p>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-box">
+              <span>Clause structuring</span>
+              <p style="font-size: 10px; color:#aaa; margin-top:4px;">Numbered lines parsing</p>
+            </div>
+          </div>
+
+          <!-- Zone 3 -->
+          <div class="arch-zone">
+            <h3>Zone 3: Evaluation</h3>
+            <div class="arch-box">
+              <span>Regex Rule Engine</span>
+              <p style="font-size: 10px; color:#aaa; margin-top:4px;">7 Risk Categories</p>
+            </div>
+            <div class="arch-arrow">▼</div>
+            <div class="arch-box highlighted">
+              <span>LLM Orchestrator</span>
+              <p style="font-size: 10px; color:#aaa; margin-top:4px;">GPT-4o-mini (Temp=0) + Gemini Failover</p>
+            </div>
+          </div>
+
+          <!-- Zone 4 -->
+          <div class="arch-zone">
+            <h3>Zone 4: Output Layer</h3>
+            <div class="arch-box highlighted">
+              <span>Compliance Report</span>
+              <p style="font-size: 11px; color:#aaa; margin-top:4px;">Clause-Cited PDF highlights</p>
+            </div>
+            <div class="arch-box">
+              <span>Interactive Chat</span>
+              <p style="font-size: 11px; color:#aaa; margin-top:4px;">Side-by-side editing UI</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Technical Architecture</span>
+        <span>Slide 7 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 8: TARGET MARKET ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Target Market</span>
+          <span class="meta-pill">Presented by: 404 Not Found Team</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h1 style="text-align: center; margin-bottom: 50px;">Target Market</h1>
+        <div class="three-cols" style="max-width: 1200px; margin: 0 auto; width: 100%;">
+          
+          <div class="market-circle">
+            <h3>SMEs</h3>
+            <p>Small and Medium Enterprises seeking fast, cost-effective compliance checks without high-priced retainer lawyers.</p>
+          </div>
+
+          <div class="market-circle" style="transform: scale(1.05); border: 2px solid var(--secondary);">
+            <h3>HR Teams</h3>
+            <p>Recruitment and human resources departments auditing letters of employment, leaves, and salary hours agreements.</p>
+          </div>
+
+          <div class="market-circle">
+            <h3>Enterprise</h3>
+            <p>Procurement teams scanning vendor agreements, supplier terms, NDAs, and corporate service level contracts.</p>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Target Market</span>
+        <span>Slide 8 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 9: SCALABLE SAAS ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Business Model</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 30px;">Scalable SaaS Designed for Lifetime Value</h2>
+        <div class="three-cols" style="align-items: center;">
+          
+          <!-- Tier 1 -->
+          <div class="price-card">
+            <div>
+              <h3>Free Plan</h3>
+              <div class="price">RM 0</div>
+              <ul>
+                <li>Up to 3 scans/mo</li>
+                <li>Standard Malaysian law checks</li>
+                <li>Community support</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Tier 2 -->
+          <div class="price-card featured">
+            <div>
+              <h3>Professional</h3>
+              <div class="price">RM 99 <span>/ mo</span></div>
+              <ul>
+                <li>Unlimited scans</li>
+                <li>Custom company policy uploads</li>
+                <li>Full inline suggestion and editing</li>
+                <li>PDF export</li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- Tier 3 -->
+          <div class="price-card">
+            <div>
+              <h3>Enterprise / Scale</h3>
+              <div class="price">RM 299 <span>/ mo</span></div>
+              <ul>
+                <li>Team workspaces connection</li>
+                <li>Auto-scanning email connection</li>
+                <li>Custom regulatory reference files</li>
+                <li>Priority technical support</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Business Model</span>
+        <span>Slide 9 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 10: ROADMAP TECHNICAL ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Implementation Roadmap</span>
+          <span class="meta-pill">Technical Focus</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 40px;">Implementation Roadmap — Technical</h2>
+        <div class="three-cols">
+          
+          <div class="roadmap-col">
+            <h3>Current</h3>
+            <ul>
+              <li>AI contract analysis orchestration</li>
+              <li>Deterministic rule regex scoring engine</li>
+              <li>PDF highlighting & coordinate parsing</li>
+              <li>In-memory text extraction from stream</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-col">
+            <h3>Short Term</h3>
+            <ul>
+              <li>Expand Malaysian legal DB (Employment, PDPA, Tenancy Act)</li>
+              <li>Bilingual analysis (Bahasa Melayu OCR and translation)</li>
+              <li>Secure Email OAuth 2.0 Integration</li>
+              <li>Intake attachment filters</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-col">
+            <h3>Long Term</h3>
+            <ul>
+              <li>Enterprise-ready REST APIs</li>
+              <li>Workspace authentication & IAM</li>
+              <li>Compliance audit logging</li>
+              <li>On-premise deployment of fine-tuned legal LLM</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Roadmap (Technical)</span>
+        <span>Slide 10 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 11: ROADMAP BUSINESS ══ -->
+    <div class="slide theme-light">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill">Implementation Roadmap</span>
+          <span class="meta-pill">Business Focus</span>
+        </div>
+      </div>
+
+      <div class="slide-body" style="flex-direction: column; justify-content: center;">
+        <h2 style="text-align: center; margin-bottom: 40px;">Implementation Roadmap — Business</h2>
+        <div class="three-cols">
+          
+          <div class="roadmap-col">
+            <h3>Current</h3>
+            <ul>
+              <li>Product-market validation with startup groups</li>
+              <li>Local SME feedback gathering</li>
+              <li>Free demo tool hosting</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-col">
+            <h3>Short Term</h3>
+            <ul>
+              <li>SAMENTA / MDEC corporate masterclasses</li>
+              <li>Partner with local legal firms for referral loops</li>
+              <li>Launch RM99 SaaS subscriptions</li>
+            </ul>
+          </div>
+
+          <div class="roadmap-col">
+            <h3>Long Term</h3>
+            <ul>
+              <li>Enterprise bulk contracts & API licensing</li>
+              <li>SAP Marketplace listing</li>
+              <li>Expansion across ASEAN region (Singapore, Indonesia)</li>
+            </ul>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <span>Roadmap (Business)</span>
+        <span>Slide 11 / 12</span>
+      </div>
+    </div>
+
+    <!-- ══ SLIDE 12: THANK YOU ══ -->
+    <div class="slide active theme-dark slide-welcome">
+      <div class="slide-header">
+        <div class="slide-logo">ContractSense</div>
+        <div class="slide-meta">
+          <span class="meta-pill highlight">Thank You</span>
+          <span class="meta-pill">NexHack 2026</span>
+        </div>
+      </div>
+      
+      <div class="thankyou-box">
+        <div class="thankyou-title">THANK YOU</div>
+        <div class="welcome-subtitle">ContractSense — by: 404 Not Found Team</div>
+        <p style="font-size: 18px; color: #8B90A0; font-weight: 400;">Empowering Malaysian SMEs to screen, flag, and remediate contract compliance risks instantly.</p>
+      </div>
+
+      <div class="slide-footer">
+        <span>ContractSense Pitch Deck NexHack 2026</span>
+        <span>Slide 12 / 12</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+  let currentSlide = 0;
+  const slides = document.querySelectorAll('.slide');
+  const slideNumIndicator = document.getElementById('slide-num');
+  const progressFill = document.getElementById('deck-progress');
+
+  function showSlide(index) {
+    if (index < 0) index = slides.length - 1;
+    if (index >= slides.length) index = 0;
+    
+    slides.forEach((slide, idx) => {
+      if (idx === index) {
+        slide.classList.add('active');
+      } else {
+        slide.classList.remove('active');
+      }
+    });
+
+    currentSlide = index;
+    slideNumIndicator.textContent = `${currentSlide + 1} / ${slides.length}`;
+    
+    // Update progress bar
+    const progressPct = ((currentSlide + 1) / slides.length) * 100;
+    progressFill.style.width = `${progressPct}%`;
+  }
+
+  function nextSlide() {
+    showSlide(currentSlide + 1);
+  }
+
+  function prevSlide() {
+    showSlide(currentSlide - 1);
+  }
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'Space') {
+      nextSlide();
+      e.preventDefault();
+    } else if (e.key === 'ArrowLeft' || e.key === 'Backspace') {
+      prevSlide();
+      e.preventDefault();
+    }
+  });
+
+  // Swipe navigation for touch screens
+  let touchStartX = 0;
+  let touchEndX = 0;
+  
+  document.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+  });
+
+  document.addEventListener('touchend', (e) => {
+    touchEndX = e.changedTouches[0].screenX;
+    handleGesture();
+  });
+
+  function handleGesture() {
+    if (touchEndX < touchStartX - 50) {
+      nextSlide();
+    } else if (touchEndX > touchStartX + 50) {
+      prevSlide();
+    }
+  }
+
+  // Fullscreen support
+  function toggleFullscreen() {
+    const docEl = document.documentElement;
+    if (!document.fullscreenElement) {
+      if (docEl.requestFullscreen) {
+        docEl.requestFullscreen();
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen();
+      }
+    }
+  }
+
+  // Initialize
+  showSlide(0);
+</script>
+</body>
+</html>

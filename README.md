@@ -24,29 +24,59 @@ ContractSense is built for three main groups:
 * **SME Business Owners**: Need to check tenancy agreements, NDAs, and supplier contracts to avoid hidden fees or unfair terms.
 * **Corporate Teams**: Need a fast way to run a first-pass check on standard agreements before sending them to the main legal department.
 
----
-
 ## 3. Technical Architecture Diagram
-Below is the system data flow showing how a contract is parsed, checked, and analyzed:
+Below is the system data flow showing how a contract is parsed, checked, and analyzed through the 4-stage pipeline:
 
 ```mermaid
 graph TD
-    A[User Interface - Browser] -->|1. Upload PDF/Word| B[FastAPI Backend Server]
-    B -->|2. Extract Text| C[Text Extraction Service]
-    B -->|3. Run Quick Checks| D[Rule Engine - Regular Expressions]
-    B -->|4. Run Context Review| E[AI Engine - OpenAI/Gemini]
-    E -->|5. Cross-Check| F[(Laws & Company Policies Database)]
-    D -->|6. Compile Results| G[JSON Report Output]
-    E -->|6. Compile Results| G
-    G -->|7. Display Highlights & Fixes| A
+    subgraph Zone 1: Intake Layer
+        UI[PDF/DOCX Upload UI - Path A Manual]
+        IMAP[Automated IMAP Agent - Path B Proactive]
+    end
+
+    subgraph Zone 2: Extraction Layer
+        pdf[pdfplumber / pypdf fallback]
+        docx[python-docx stream extractor]
+        structure[Clause-Numbered Structuring]
+    end
+
+    subgraph Zone 3: Evaluation Layer
+        regex[Deterministic Regex Rule Engine - 7 Risk Categories]
+        llm[Retrieval-Grounded LLM Review - Map-Reduce Chunking over Malaysian Law DB]
+        openai[OpenAI Client - Temp=0]
+        gemini[Gemini Client - Backup / Failover]
+        log[Failure Logging]
+    end
+
+    subgraph Zone 4: Output Layer
+        report[Clause-Cited Compliance Report]
+        chat[Interactive Chat UI]
+    end
+
+    UI --> pdf
+    UI --> docx
+    IMAP --> pdf
+    pdf --> structure
+    docx --> structure
+    structure --> regex
+    structure --> llm
+    llm --> openai
+    openai -->|Failover| gemini
+    gemini --> log
+    regex --> report
+    openai --> report
+    gemini --> report
+    report --> chat
 ```
 
 ### 🛠️ Technical Stack Breakdown
-*   **Frontend**: Single Page Application (SPA) designed using clean, high-performance Vanilla HTML5, CSS3, and ES6 JavaScript. Includes custom side-by-side document views and responsive page-state routing.
+*   **Frontend**: Single Page Application (SPA) designed using clean, high-performance Vanilla HTML5, CSS3, and ES6 JavaScript. Includes custom side-by-side document views, interactive highlight overlays synced with PDF coordinates, and responsive page-state routing.
 *   **Backend Framework**: FastAPI (Python) for asynchronous endpoints, low latency, and automatic Swagger/OpenAPI documentation generation.
-*   **Text Processing**: `PyPDF2` and custom `docx` binary stream extractors running on the backend, processing payloads safely without writing documents to public folders.
+*   **Text Processing**: Dynamic text extraction using `pdfplumber` first (handling tables and layouts reliably) and falling back to `pypdf` for maximum stability, alongside `python-docx` for Word documents.
 *   **Rule Engine**: Native regex-based scoring engine evaluating seven distinct high-risk categories (Auto-Renewal, Unilateral changes, Hidden fees, Liability limitations, Data transfers, Exclusive remedies, and External URL terms).
-*   **LLM Orchestrator**: Async OpenAI API integration, utilizing system prompt directives to inject context (extracted contract text, deterministic rule violations, and reference law databases) to produce targeted executive reviews.
+*   **LLM Orchestrator**: Async multi-provider LLM calling with automatic failover (tries OpenAI GPT-4o-mini first, and automatically falls back to Gemini 2.5 Flash if needed). Utilizes retrieval-grounded context (local law updates and company policies) at temperature 0 for strict precision.
+*   **Background Automation**: Watcher services for folder auto-import (`data/auto_import`) and IMAP email scanning (selectively scanning subject lines first to preserve inbox privacy).
+*   **Database**: Sqlite database as local store (default at `backend/data/contractsense.db`) or PostgreSQL/Supabase for cloud deployment.
 
 ---
 ## 📊 Business & Monetization Model
@@ -55,8 +85,8 @@ ContractSense utilizes a Software-as-a-Service (SaaS) subscription model with ti
 | Tier | Target Audience | Pricing | Features Included |
 | :--- | :--- | :--- | :--- |
 | **Starter / Dev** | Startups & Solopreneurs | **Free** (RM 0) | Up to 3 contract scans/month, standard Malaysian laws checks, community support. |
-| **Professional** | SMEs & Growing HR Teams | **RM 149 / month** | Unlimited scans, custom company policy uploads, full inline suggestions, PDF export. |
-| **Enterprise** | Large Scale / Legal Depts | **RM 499 / month** | Team workspaces, API keys, custom regulatory law reference files, dedicated customer success. |
+| **Professional** | SMEs & Growing HR Teams | **RM 99 / month** | Unlimited scans, custom company policy uploads & updates, full inline suggestions, auto editing, PDF export. |
+| **Enterprise / Scale** | Large Scale / Legal Depts | **RM 299 / month** | Team workspaces connection, auto-scanning connection, custom regulatory reference files, dedicated customer support. |
 
 ---
 ## 🚀 Go-To-Market (GTM) Strategy
@@ -99,7 +129,6 @@ To run ContractSense on your local machine:
 ### Prerequisites
 *   Python 3.10+
 *   Node.js (optional, for hosting the frontend locally)
-*   OpenAI API Key (optional, for full heuristic LLM analysis)
 
 ### 1. Start the Backend API
 1. Open a terminal and navigate to the backend folder:
@@ -122,7 +151,7 @@ To run ContractSense on your local machine:
    - To use **Gemini API** (Pro/Free key), add:
      ```env
      GEMINI_API_KEY=your_gemini_api_key
-     GEMINI_MODEL=gemini-1.5-flash   # or gemini-1.5-pro for advanced logic
+     GEMINI_MODEL=gemini-2.5-flash   # Default 2.5-flash model
      ```
    - To use **OpenAI API**, add:
      ```env
@@ -154,10 +183,11 @@ To run ContractSense on your local machine:
 ## 4. Technical & Business Overview
 
 ### Technical Highlights
-* **Hybrid Engine**: Uses quick regex matching for obvious traps (like auto-renewals) and advanced AI (Gemini/OpenAI) for complex compliance logic.
-* **Data Privacy**: Everything is processed in memory. We do not store contract files in public folders, and we do not use your contracts to train public AI models.
+* **4-Zone Hybrid Engine**: Combines background/manual intake, pdfplumber layout-aware text extraction, deterministic regex rules, and retrieval-grounded LLM review with automatic failover (OpenAI -> Gemini).
+* **PDF Coordinate Mapping**: Renders actual PDF pages inside the browser and projects highlights directly onto the exact text coordinates.
+* **Data Privacy**: Processed in memory without storing contracts publicly or using customer files to train public models.
 
 ### Business Value
 * **Massive Cost Savings**: Instantly saves SMEs thousands of Ringgit in legal review fees.
 * **Speed**: Reduces compliance check times from days to under 30 seconds.
-* **Scalable SaaS**: Built on a tiered subscription model (Free Plan, Professional Plan at RM149/month, and Enterprise Plan at RM499/month).
+* **Scalable SaaS**: Built on a tiered subscription model (Free Plan, Professional Plan at RM99/month, and Enterprise Plan at RM299/month).
