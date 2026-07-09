@@ -106,9 +106,9 @@ async def process_incoming_contracts() -> list[dict]:
                     continue
                     
                 # Load reference text (laws & policies)
-                from app.main import _load_reference_text, LAWS_DIR, POLICIES_DIR
+                from app.main import _load_company_policy_text, _load_reference_text, LAWS_DIR
                 laws_text = _load_reference_text(LAWS_DIR)
-                policies_text = _load_reference_text(POLICIES_DIR)
+                policies_text = _load_company_policy_text()
 
                 # Run rule analyzer
                 findings = analyze_text(contract_text, policies_text=policies_text)
@@ -337,9 +337,9 @@ async def process_email_contract_async(email_item: dict) -> None:
         print(f"IMAP scanner: automatic screening contract '{filename}' from '{sender}'...")
         
         # Load reference databases (laws & policies)
-        from app.main import _load_reference_text, LAWS_DIR, POLICIES_DIR
+        from app.main import _load_company_policy_text, _load_reference_text, LAWS_DIR
         laws_text = _load_reference_text(LAWS_DIR)
-        policies_text = _load_reference_text(POLICIES_DIR)
+        policies_text = _load_company_policy_text()
 
         # Rule analyzer
         findings = analyze_text(contract_text, policies_text=policies_text)

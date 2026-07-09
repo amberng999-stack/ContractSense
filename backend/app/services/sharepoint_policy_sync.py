@@ -80,7 +80,7 @@ def sync_company_policy_source(
             and resource.etag == manifest.get("etag")
             and resource.last_modified == manifest.get("last_modified")
         )
-        if unchanged and (policies_dir / ACTIVE_POLICY_FILENAME).exists():
+        if unchanged and (policies_dir / ACTIVE_POLICY_FILENAME).exists() and _active_policy_exists_in_database():
             manifest.update({
                 "sync_status": "up_to_date",
                 "message": "Company policy is already up to date.",
@@ -94,11 +94,23 @@ def sync_company_policy_source(
         if not text.strip():
             raise ValueError("The linked file was downloaded, but no readable policy text could be extracted.")
 
-        next_version = int(manifest.get("version") or 0) + 1
+        next_version = int(manifest.get("version") or 0) if unchanged else int(manifest.get("version") or 0) + 1
+        if next_version < 1:
+            next_version = 1
         active_text = _render_policy_text(source_url, text, next_version, resource)
         (policies_dir / ACTIVE_POLICY_FILENAME).write_text(active_text, encoding="utf-8")
         version_file = policies_dir / f"company_policy_v{next_version}.md"
         version_file.write_text(active_text, encoding="utf-8")
+
+        policy_db_id = _store_active_policy_in_database(
+            source_url=source_url,
+            download_url=resource.url,
+            version=next_version,
+            content_text=active_text,
+            checksum=checksum,
+            etag=resource.etag,
+            last_modified=resource.last_modified,
+        )
 
         manifest.update({
             "source_type": "microsoft_365_link",
@@ -115,6 +127,7 @@ def sync_company_policy_source(
             "content_type": resource.content_type,
             "active_policy_file": ACTIVE_POLICY_FILENAME,
             "latest_version_file": version_file.name,
+            "policy_db_id": policy_db_id,
         })
         _write_manifest(policies_dir, manifest)
         return manifest
@@ -150,6 +163,43 @@ def read_company_policy_source_status(policies_dir: Path) -> dict:
             "version": 0,
             "active_policy_file": ACTIVE_POLICY_FILENAME,
         }
+
+
+def _store_active_policy_in_database(
+    *,
+    source_url: str,
+    download_url: str,
+    version: int,
+    content_text: str,
+    checksum: str,
+    etag: str,
+    last_modified: str,
+) -> int | None:
+    try:
+        from app.db import save_company_policy_snapshot
+
+        return save_company_policy_snapshot({
+            "source_url": source_url,
+            "download_url": download_url,
+            "version": version,
+            "content_text": content_text,
+            "checksum": checksum,
+            "etag": etag,
+            "last_modified": last_modified,
+        })
+    except Exception as exc:
+        print(f"Could not store synced company policy in database: {exc}")
+        return None
+
+
+def _active_policy_exists_in_database() -> bool:
+    try:
+        from app.db import get_active_company_policy
+
+        active_policy = get_active_company_policy()
+        return bool(active_policy and active_policy.get("content_text", "").strip())
+    except Exception:
+        return False
 
 
 async def company_policy_sync_loop(
