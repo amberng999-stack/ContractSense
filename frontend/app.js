@@ -2536,9 +2536,7 @@ function applyAllSuggestions() {
 async function saveEditorChanges() {
   if (!_activeContract) return;
   
-  const paper = document.getElementById('editor-textarea');
-  const paragraphs = Array.from(paper.getElementsByTagName('p')).map(p => p.innerText || p.textContent);
-  const newText = paragraphs.join('\n');
+  const newText = getEditorPlainText();
   
   try {
     const res = await fetch(`${API_BASE}/api/history/${_activeContract.id}/text`, {
@@ -2569,7 +2567,7 @@ async function rescanEditedContract() {
 
   const btn = document.getElementById('rescan-edited-btn');
   const originalText = btn ? btn.textContent : '';
-  const newText = getCurrentContractTextForExport().trim();
+  const newText = getEditorPlainText().trim();
   if (!newText) {
     alert('Edited contract text is empty.');
     return;
@@ -2598,16 +2596,16 @@ async function rescanEditedContract() {
     if (!res.ok) throw new Error(data.detail || `Server returned ${res.status}`);
 
     const rescanned = mapApiResponseToContract(data, { name: data.file_name || _activeContract.filename });
+    rescanned.rawText = data.contract_text || newText;
     _activeContract = rescanned;
     _chatHistory = [];
+    _currentBatchContracts = [rescanned];
+    _pendingBatchContracts = [];
     SCAN_HISTORY.unshift(rescanned);
     saveLocalScanHistory();
     buildHistoryList();
 
-    document.getElementById('page-editor').classList.remove('active');
-    document.getElementById('page-scanner').classList.add('active');
-    document.getElementById('results-view').classList.remove('show');
-    document.getElementById('safe-result').classList.remove('show');
+    goPage('scanner');
     showResults(rescanned);
   } catch (err) {
     console.error('Rescan failed:', err);
@@ -2738,10 +2736,19 @@ async function saveContractExport() {
 function getCurrentContractTextForExport() {
   const editorActive = document.getElementById('page-editor')?.classList.contains('active');
   if (editorActive) {
-    const paper = document.getElementById('editor-textarea');
-    return Array.from(paper.getElementsByTagName('p')).map(p => p.innerText || p.textContent).join('\n');
+    return getEditorPlainText();
   }
   return _activeContract?.rawText || '';
+}
+
+function getEditorPlainText() {
+  const paper = document.getElementById('editor-textarea');
+  if (!paper) return '';
+  const paragraphs = Array.from(paper.getElementsByTagName('p'));
+  if (paragraphs.length) {
+    return paragraphs.map(p => p.innerText || p.textContent || '').join('\n');
+  }
+  return paper.innerText || paper.textContent || '';
 }
 
 function buildWordBlob(text) {

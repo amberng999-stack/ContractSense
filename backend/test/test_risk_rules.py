@@ -52,6 +52,19 @@ def test_detects_employment_hours_and_non_compete() -> None:
     assert any(fid.startswith("post-employment-non-compete") for fid in ids)
 
 
+def test_detects_daily_hours_six_days_without_overtime_payment() -> None:
+    text = """
+    Clause 3. Working Hours
+    The Employee shall work ten (10) hours per day, six (6) days per week, without overtime payment.
+    """
+
+    findings = analyze_text(text)
+
+    ids = {finding.id for finding in findings}
+    assert any(fid.startswith("excessive-working-hours") for fid in ids)
+    assert any(fid.startswith("no-overtime-premium") for fid in ids)
+
+
 def test_detects_specific_employment_and_pdpa_errors() -> None:
     text = """
     1. EMPLOYMENT AND DATA TERMS
