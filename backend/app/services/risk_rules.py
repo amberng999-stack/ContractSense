@@ -81,6 +81,8 @@ RISK_RULES: tuple[RiskRule, ...] = (
         patterns=(
             r"(?:work|working|normal hours).{0,60}(?:4[6-9]|[5-9]\d)\s*(?:hours|hrs)\s*(?:per|a)?\s*week",
             r"(?:4[6-9]|[5-9]\d)\s*(?:hours|hrs)\s*(?:per|a)?\s*week",
+            r"(?:work|working|normal hours).{0,120}(?:ten|10)\s*(?:\(\s*10\s*\))?\s*(?:hours|hrs)\s*(?:per|a)?\s*day.{0,120}(?:six|6)\s*(?:\(\s*6\s*\))?\s*days?\s*(?:per|a)?\s*week",
+            r"(?:ten|10)\s*(?:\(\s*10\s*\))?\s*(?:hours|hrs)\s*(?:per|a)?\s*day.{0,120}(?:six|6)\s*(?:\(\s*6\s*\))?\s*days?\s*(?:per|a)?\s*week",
         ),
         explanation="The clause appears to require weekly working hours above the Malaysian statutory baseline.",
         recommendation="Keep normal working hours within 45 hours per week unless a lawful exception applies, and state overtime eligibility clearly.",
@@ -113,6 +115,8 @@ RISK_RULES: tuple[RiskRule, ...] = (
         patterns=(
             r"overtime.{0,80}(?:standard|normal|ordinary)\s+(?:hourly\s+)?rate.{0,80}(?:no|without)\s+(?:additional\s+)?premium",
             r"overtime.{0,80}(?:no|without)\s+(?:additional\s+)?(?:premium|extra pay|overtime rate)",
+            r"(?:without|no)\s+overtime\s+(?:payment|pay|compensation)",
+            r"without\s+(?:any\s+)?(?:additional\s+)?(?:payment|pay|compensation).{0,40}overtime",
         ),
         explanation="The clause appears to remove or reduce statutory overtime premium treatment.",
         recommendation="State that overtime will be paid at the applicable statutory overtime rate under Malaysian employment law.",
